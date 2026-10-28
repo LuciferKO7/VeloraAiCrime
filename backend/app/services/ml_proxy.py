@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Any
 
@@ -130,6 +131,64 @@ class MLProxyClient:
             "attributes": attributes or {},
         }
         return self._send_request("/ml/v1/edit", payload, session_id=session_id, round_id=round_id)
+
+    def get_embedding(self, image_bytes: bytes) -> tuple[list[float], str]:
+        """
+        Calls ML Service POST /ml/v1/embed to compute a 512-dim facial embedding.
+        Returns (embedding_floats, model_version).
+        Validates embedding is 512 finite floats and L2-normalizes it.
+        """
+        url = f"{self.base_url}/ml/v1/embed"
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                files = {"file": ("image.png", image_bytes, "image/png")}
+                headers = {"X-Service-Key": self.service_key}
+                resp = client.post(url, files=files, headers=headers)
+                if resp.status_code == 404:
+                    url_fallback = f"{self.base_url}/embed"
+                    resp = client.post(url_fallback, files=files, headers=headers)
+
+                if resp.status_code in (429, 503):
+                    try:
+                        err_json = resp.json()
+                        err_code = err_json.get("error", {}).get("code")
+                        if err_code == "ML_BUSY":
+                            raise AppError("ML_BUSY", "ML service is busy processing another request", status_code=503)
+                    except Exception as parse_err:
+                        if isinstance(parse_err, AppError):
+                            raise
+                    raise AppError("ML_UNAVAILABLE", f"ML service error: {resp.text}", status_code=503)
+
+                if resp.status_code != 200:
+                    raise AppError("ML_UNAVAILABLE", f"ML service returned HTTP {resp.status_code}: {resp.text}", status_code=503)
+
+                data = resp.json()
+                raw_emb = data.get("embedding")
+                if not isinstance(raw_emb, list) or len(raw_emb) != 512:
+                    got_desc = len(raw_emb) if isinstance(raw_emb, list) else type(raw_emb)
+                    raise AppError("ML_UNAVAILABLE", f"Invalid embedding dimension: expected 512, got {got_desc}", status_code=503)
+
+                norm_sq = 0.0
+                clean_emb: list[float] = []
+                for val in raw_emb:
+                    if not isinstance(val, (int, float)) or math.isnan(val) or math.isinf(val):
+                        raise AppError("ML_UNAVAILABLE", "Embedding contains non-finite values", status_code=503)
+                    fval = float(val)
+                    clean_emb.append(fval)
+                    norm_sq += fval * fval
+
+                norm = math.sqrt(norm_sq)
+                if norm > 1e-12:
+                    clean_emb = [x / norm for x in clean_emb]
+                else:
+                    raise AppError("ML_UNAVAILABLE", "Embedding has zero norm", status_code=503)
+
+                model_version = data.get("model_version") or data.get("embedding_model_version") or "face_embedder_v1"
+                return clean_emb, str(model_version)
+
+        except httpx.RequestError as exc:
+            logger.error("ML service unreachable at %s: %s", url, exc)
+            raise AppError("ML_UNAVAILABLE", f"ML service unreachable at {self.base_url}: {exc}", status_code=503) from exc
 
     def _send_request(
         self,

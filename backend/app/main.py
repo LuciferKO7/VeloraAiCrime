@@ -38,6 +38,13 @@ async def lifespan(app: FastAPI):
     # Startup: validate secrets fail-fast
     settings.validate_secrets()
     logger.info("Configuration validated and backend hub initialized")
+    try:
+        from backend.app.services.gallery_service import gallery_index
+
+        gallery_index.load_from_db()
+        logger.info("Gallery embedding matrix initialized: %d faces loaded", len(gallery_index))
+    except Exception as exc:
+        logger.warning("Could not initialize gallery embedding matrix on startup: %s", exc)
     yield
 
 

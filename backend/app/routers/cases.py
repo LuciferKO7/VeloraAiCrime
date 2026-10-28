@@ -1,4 +1,6 @@
+import json
 import uuid
+from collections import Counter, defaultdict
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
@@ -295,3 +297,142 @@ def update_case(
         {"id": case_id},
     ).mappings().fetchone()
     return dict(updated_row)
+
+
+@router.post("/{case_id}/consensus")
+def get_case_consensus(
+    request: Request,
+    case_access_info: dict = Depends(require_case_access("view")),
+    conn: Connection = Depends(get_connection),
+):
+    """
+    Computes cross-session consensus for face attributes across all sessions of this case (§8.6, Step B11).
+    Includes only attributes whose source is 'stated' or 'user_edit' (never AI assumptions).
+    Computes modal value, agreement ratio, and flags disagreements.
+    """
+    user = case_access_info["user"]
+    purpose = case_access_info["purpose"]
+    case_dict = case_access_info["case"]
+    case_id = case_dict["id"]
+
+    if user["role"] == "auditor":
+        raise AppError("FORBIDDEN", "Auditors cannot view consensus details", status_code=403)
+
+    # Fetch face sessions belonging strictly to this case
+    sessions = conn.execute(
+        text(
+            """
+            SELECT id FROM sessions
+            WHERE case_id = :cid AND kind = 'face'
+            ORDER BY created_at ASC, id ASC
+            """
+        ),
+        {"cid": case_id},
+    ).mappings().fetchall()
+
+    session_ids = [s["id"] for s in sessions]
+    collector: dict[str, list[dict]] = defaultdict(list)
+
+    for sid in session_ids:
+        snap = conn.execute(
+            text(
+                """
+                SELECT attributes_json FROM attribute_snapshots
+                WHERE session_id = :sid
+                ORDER BY version DESC LIMIT 1
+                """
+            ),
+            {"sid": sid},
+        ).mappings().fetchone()
+
+        if not snap or not snap["attributes_json"]:
+            continue
+
+        try:
+            snap_data = json.loads(snap["attributes_json"])
+        except Exception:
+            continue
+
+        attrs = snap_data.get("attributes", snap_data)
+        if not isinstance(attrs, dict):
+            continue
+
+        for attr_name, attr_obj in attrs.items():
+            if not isinstance(attr_obj, dict):
+                continue
+            val = attr_obj.get("value")
+            if val is None:
+                continue
+            src = attr_obj.get("source")
+            # Only include values whose source is stated or user_edit (§8.6)
+            if src not in ("stated", "user_edit"):
+                continue
+
+            collector[attr_name].append(
+                {
+                    "session_id": sid,
+                    "value": str(val),
+                    "confidence": attr_obj.get("confidence"),
+                }
+            )
+
+    consensus_attrs: dict[str, dict] = {}
+    disagreements: list[str] = []
+
+    for attr_name, entries in collector.items():
+        n = len(entries)
+        if n == 0:
+            continue
+        if n == 1:
+            consensus_attrs[attr_name] = {
+                "n": 1,
+                "modal_value": entries[0]["value"],
+                "agreement": None,  # §8.6: if n < 2, agreement is null
+                "values": entries,
+                "disagreement": False,
+            }
+        else:
+            counts = Counter(e["value"] for e in entries)
+            modal_value, modal_count = counts.most_common(1)[0]
+            agreement = round(modal_count / n, 4)
+            is_disagreement = bool(agreement < 1.0)
+            if is_disagreement:
+                disagreements.append(attr_name)
+            consensus_attrs[attr_name] = {
+                "n": n,
+                "modal_value": modal_value,
+                "agreement": agreement,
+                "values": entries,
+                "disagreement": is_disagreement,
+            }
+
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    with atomic_mutation(conn):
+        write_audit_entry(
+            conn,
+            action="consensus.view",
+            user_id=user["id"],
+            username=user["username"],
+            role=user["role"],
+            resource_type="case",
+            resource_id=case_id,
+            case_id=case_id,
+            purpose=purpose,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=200,
+            details={
+                "session_count": len(session_ids),
+                "attribute_count": len(consensus_attrs),
+                "disagreement_count": len(disagreements),
+            },
+        )
+
+    return {
+        "case_id": case_id,
+        "session_count": len(session_ids),
+        "attributes": consensus_attrs,
+        "disagreements": disagreements,
+    }
