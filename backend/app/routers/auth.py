@@ -7,6 +7,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from backend.app.audit.chain import write_audit_entry
 from backend.app.auth.deps import get_current_user
 from backend.app.core.config import settings
 from backend.app.core.errors import AppError
@@ -45,6 +46,8 @@ def login(
 ):
     now = datetime.now(UTC)
     username = body.username.strip()
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
 
     row = conn.execute(
         text(
@@ -58,9 +61,29 @@ def login(
     ).mappings().fetchone()
 
     if not row:
+        write_audit_entry(
+            conn,
+            action="auth.login_failed",
+            username=username,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=401,
+            details={"username": username, "reason": "User not found"},
+        )
         raise AppError("AUTH_INVALID", "Invalid username or password")
 
     if not row["is_active"]:
+        write_audit_entry(
+            conn,
+            action="auth.login_failed",
+            user_id=row["id"],
+            username=username,
+            role=row["role"],
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=401,
+            details={"username": username, "reason": "Account is disabled"},
+        )
         raise AppError("AUTH_INVALID", "Account is disabled")
 
     # Check lock
@@ -69,6 +92,17 @@ def login(
         try:
             locked_until = datetime.fromisoformat(locked_until_str)
             if locked_until > now:
+                write_audit_entry(
+                    conn,
+                    action="auth.login_failed",
+                    user_id=row["id"],
+                    username=username,
+                    role=row["role"],
+                    ip=client_ip,
+                    user_agent=user_agent,
+                    status_code=423,
+                    details={"username": username, "reason": "Account locked", "locked_until": locked_until_str},
+                )
                 raise AppError("ACCOUNT_LOCKED", f"Account is locked until {locked_until_str}")
             else:
                 # Lock expired, reset
@@ -91,6 +125,17 @@ def login(
                 {"failed": new_failed, "locked": lock_time, "id": row["id"]},
             )
             conn.commit()
+            write_audit_entry(
+                conn,
+                action="auth.login_failed",
+                user_id=row["id"],
+                username=username,
+                role=row["role"],
+                ip=client_ip,
+                user_agent=user_agent,
+                status_code=423,
+                details={"username": username, "reason": "5 failed login attempts", "locked_until": lock_time},
+            )
             raise AppError("ACCOUNT_LOCKED", "Account locked for 15 minutes due to 5 failed login attempts")
 
         conn.execute(
@@ -98,6 +143,17 @@ def login(
             {"failed": new_failed, "id": row["id"]},
         )
         conn.commit()
+        write_audit_entry(
+            conn,
+            action="auth.login_failed",
+            user_id=row["id"],
+            username=username,
+            role=row["role"],
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=401,
+            details={"username": username, "reason": "Invalid password", "failed_count": new_failed},
+        )
         raise AppError("AUTH_INVALID", "Invalid username or password")
 
     # Success: reset failed logins, update last login
@@ -109,6 +165,18 @@ def login(
 
     token = create_access_token(sub=row["id"], role=row["role"])
     expires_in = settings.JWT_EXPIRE_MINUTES * 60
+
+    write_audit_entry(
+        conn,
+        action="auth.login",
+        user_id=row["id"],
+        username=row["username"],
+        role=row["role"],
+        ip=client_ip,
+        user_agent=user_agent,
+        status_code=200,
+        details={"username": row["username"]},
+    )
 
     return LoginResponse(
         access_token=token,
@@ -124,7 +192,24 @@ def login(
 
 
 @router.post("/logout")
-def logout(current_user: dict = Depends(get_current_user)):
+def logout(
+    request: Request,
+    conn: Connection = Depends(get_connection),
+    current_user: dict = Depends(get_current_user),
+):
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    write_audit_entry(
+        conn,
+        action="auth.logout",
+        user_id=current_user["id"],
+        username=current_user["username"],
+        role=current_user["role"],
+        ip=client_ip,
+        user_agent=user_agent,
+        status_code=200,
+        details={},
+    )
     return {"message": "Logged out successfully"}
 
 

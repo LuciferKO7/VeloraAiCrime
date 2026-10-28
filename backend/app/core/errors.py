@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from fastapi import Request, status
@@ -55,6 +56,34 @@ def error_response(code: str, message: str, details: dict[str, Any] | None = Non
 
 
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    if exc.code == "FORBIDDEN" or exc.status_code == 403:
+        if not getattr(request.state, "access_denied_logged", False):
+            case_match = re.search(r"/cases/([^/?#]+)", request.url.path)
+            if case_match:
+                case_id = case_match.group(1)
+                user = getattr(request.state, "user", {}) or {}
+                purpose = request.headers.get("x-access-purpose")
+                client_ip = request.client.host if request.client else None
+                user_agent = request.headers.get("user-agent")
+                request.state.access_denied_logged = True
+                try:
+                    from backend.app.audit.chain import write_audit_entry
+                    write_audit_entry(
+                        action="access.denied",
+                        user_id=user.get("id"),
+                        username=user.get("username"),
+                        role=user.get("role"),
+                        resource_type="case",
+                        resource_id=case_id,
+                        case_id=case_id,
+                        purpose=purpose,
+                        ip=client_ip,
+                        user_agent=user_agent,
+                        status_code=403,
+                        details={"reason": exc.message, "path": request.url.path, "method": request.method},
+                    )
+                except Exception:
+                    pass
     return error_response(code=exc.code, message=exc.message, details=exc.details)
 
 

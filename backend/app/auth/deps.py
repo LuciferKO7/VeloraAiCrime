@@ -1,13 +1,47 @@
 from collections.abc import Callable
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from fastapi import Path as FastApiPath
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from backend.app.audit.chain import write_audit_entry
 from backend.app.core.errors import AppError
 from backend.app.core.security import decode_access_token
 from backend.app.db.session import get_connection
+
+
+def _log_access_denied(
+    user: dict,
+    case_id: str,
+    purpose: str | None,
+    request: Request,
+    reason: str,
+    conn: Connection | None = None,
+) -> None:
+    if getattr(request.state, "access_denied_logged", False):
+        return
+    request.state.access_denied_logged = True
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    try:
+        write_audit_entry(
+            conn,
+            action="access.denied",
+            user_id=user.get("id"),
+            username=user.get("username"),
+            role=user.get("role"),
+            resource_type="case",
+            resource_id=case_id,
+            case_id=case_id,
+            purpose=purpose,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=403,
+            details={"reason": reason, "path": request.url.path, "method": request.method},
+        )
+    except Exception:
+        pass
 
 
 def get_token_from_header(authorization: str | None = Header(None)) -> str:
@@ -20,6 +54,7 @@ def get_token_from_header(authorization: str | None = Header(None)) -> str:
 
 
 def get_current_user(
+    request: Request,
     token: str = Depends(get_token_from_header),
     conn: Connection = Depends(get_connection),
 ) -> dict:
@@ -38,7 +73,9 @@ def get_current_user(
     if not row["is_active"]:
         raise AppError("AUTH_INVALID", "User account is disabled")
 
-    return dict(row)
+    user_dict = dict(row)
+    request.state.user = user_dict
+    return user_dict
 
 
 def require_role(*allowed_roles: str) -> Callable:
@@ -65,6 +102,7 @@ def require_case_access(level: str = "view") -> Callable:
     - admin -> no case content unless granted access
     """
     def dependency(
+        request: Request,
         case_id: str = FastApiPath(...),
         user: dict = Depends(get_current_user),
         purpose: str = Depends(require_access_purpose),
@@ -87,6 +125,7 @@ def require_case_access(level: str = "view") -> Callable:
         if role == "auditor":
             # Auditor can view case metadata only
             if level != "view":
+                _log_access_denied(user, case_id, purpose, request, "Auditors cannot mutate cases", conn)
                 raise AppError("FORBIDDEN", "Auditors cannot mutate cases")
             return {"case": dict(case_row), "user": user, "purpose": purpose}
 
@@ -103,14 +142,17 @@ def require_case_access(level: str = "view") -> Callable:
             ).mappings().fetchone()
 
             if not access_row:
+                _log_access_denied(user, case_id, purpose, request, "Access to this case has not been granted or was revoked", conn)
                 raise AppError("FORBIDDEN", "Access to this case has not been granted or was revoked")
 
             granted_level = access_row["access_level"]
             if level == "edit" and granted_level != "edit":
+                _log_access_denied(user, case_id, purpose, request, "Edit permission required for this operation", conn)
                 raise AppError("FORBIDDEN", "Edit permission required for this operation")
 
             return {"case": dict(case_row), "user": user, "purpose": purpose}
 
+        _log_access_denied(user, case_id, purpose, request, "Unauthorized role for case access", conn)
         raise AppError("FORBIDDEN", "Unauthorized role for case access")
 
     return dependency

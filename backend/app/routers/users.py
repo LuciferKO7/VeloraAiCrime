@@ -1,11 +1,12 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from backend.app.audit.chain import write_audit_entry
 from backend.app.auth.deps import require_role
 from backend.app.core.errors import AppError
 from backend.app.core.security import hash_password
@@ -51,6 +52,7 @@ def list_users(
 
 @router.post("", response_model=UserResponse, status_code=201)
 def create_user(
+    request: Request,
     body: UserCreate,
     conn: Connection = Depends(get_connection),
     current_user: dict = Depends(require_role("admin")),
@@ -88,6 +90,22 @@ def create_user(
     )
     conn.commit()
 
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    write_audit_entry(
+        conn,
+        action="user.create",
+        user_id=current_user["id"],
+        username=current_user["username"],
+        role=current_user["role"],
+        resource_type="user",
+        resource_id=user_id,
+        ip=client_ip,
+        user_agent=user_agent,
+        status_code=201,
+        details={"created_user_id": user_id, "username": body.username.strip(), "role": body.role},
+    )
+
     return UserResponse(
         id=user_id,
         username=body.username.strip(),
@@ -102,6 +120,7 @@ def create_user(
 def update_user(
     user_id: str,
     body: UserUpdate,
+    request: Request,
     conn: Connection = Depends(get_connection),
     current_user: dict = Depends(require_role("admin")),
 ):
@@ -140,4 +159,21 @@ def update_user(
         text("SELECT id, username, full_name, role, is_active, created_at, last_login_at FROM users WHERE id = :id"),
         {"id": user_id},
     ).mappings().fetchone()
+
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    write_audit_entry(
+        conn,
+        action="user.update",
+        user_id=current_user["id"],
+        username=current_user["username"],
+        role=current_user["role"],
+        resource_type="user",
+        resource_id=user_id,
+        ip=client_ip,
+        user_agent=user_agent,
+        status_code=200,
+        details={"updated_user_id": user_id, "fields": [k for k, v in body.model_dump(exclude_unset=True).items() if k != "password"]},
+    )
+
     return dict(updated)

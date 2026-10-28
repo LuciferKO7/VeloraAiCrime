@@ -1,11 +1,12 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from backend.app.audit.chain import write_audit_entry
 from backend.app.auth.deps import get_current_user, require_case_access, require_role
 from backend.app.db.session import get_connection
 
@@ -48,6 +49,7 @@ def list_cases(
 
 @router.post("", status_code=201)
 def create_case(
+    request: Request,
     body: CaseCreate,
     conn: Connection = Depends(get_connection),
     current_user: dict = Depends(require_role("investigator", "supervisor")),
@@ -74,12 +76,54 @@ def create_case(
         },
     )
     conn.commit()
+
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    write_audit_entry(
+        conn,
+        action="case.create",
+        user_id=current_user["id"],
+        username=current_user["username"],
+        role=current_user["role"],
+        resource_type="case",
+        resource_id=case_id,
+        case_id=case_id,
+        ip=client_ip,
+        user_agent=user_agent,
+        status_code=201,
+        details={"case_number": body.case_number, "title": body.title, "data_mode": body.data_mode},
+    )
+
     return {"id": case_id, "case_number": body.case_number, "title": body.title, "status": "open"}
 
 
 @router.get("/{case_id}")
 def get_case(
+    request: Request,
     case_access_info: dict = Depends(require_case_access("view")),
+    conn: Connection = Depends(get_connection),
 ):
+    case_dict = case_access_info["case"]
+    user = case_access_info["user"]
+    purpose = case_access_info["purpose"]
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    write_audit_entry(
+        conn,
+        action="case.view",
+        user_id=user["id"],
+        username=user["username"],
+        role=user["role"],
+        resource_type="case",
+        resource_id=case_dict["id"],
+        case_id=case_dict["id"],
+        purpose=purpose,
+        ip=client_ip,
+        user_agent=user_agent,
+        status_code=200,
+        details={"case_number": case_dict["case_number"]},
+    )
+
     # Returns case metadata
-    return case_access_info["case"]
+    return case_dict

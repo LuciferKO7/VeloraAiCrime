@@ -30,10 +30,16 @@ _engine = None
 metadata = MetaData()
 
 
+def set_engine(engine: Engine | None) -> None:
+    global _engine
+    _engine = engine
+
+
 def get_engine(db_url: str = None) -> Engine:
     global _engine
     if db_url is not None:
-        return create_engine(get_sqlite_url(db_url), connect_args={"check_same_thread": False})
+        _engine = create_engine(get_sqlite_url(db_url), connect_args={"check_same_thread": False})
+        return _engine
     if _engine is None:
         _engine = create_engine(get_sqlite_url(settings.DATABASE_URL), connect_args={"check_same_thread": False})
     return _engine
