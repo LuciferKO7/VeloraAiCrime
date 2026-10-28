@@ -92,7 +92,7 @@ def require_access_purpose(x_access_purpose: str | None = Header(None)) -> str:
     return x_access_purpose.strip()
 
 
-def require_case_access(level: str = "view") -> Callable:
+def require_case_access(level: str = "view", allow_auditor: bool = True) -> Callable:
     """
     Implements §6.3 Role matrix for case access:
     - investigator/artist -> only cases with non-revoked case_access row
@@ -113,7 +113,14 @@ def require_case_access(level: str = "view") -> Callable:
 
         # Check case exists
         case_row = conn.execute(
-            text("SELECT id, case_number, title, status FROM cases WHERE id = :id"),
+            text(
+                """
+                SELECT id, case_number, title, station, offence_summary, data_mode,
+                       default_appearance_group, status, created_by, created_at, updated_at
+                FROM cases
+                WHERE id = :id
+                """
+            ),
             {"id": case_id},
         ).mappings().fetchone()
         if not case_row:
@@ -123,6 +130,9 @@ def require_case_access(level: str = "view") -> Callable:
             return {"case": dict(case_row), "user": user, "purpose": purpose}
 
         if role == "auditor":
+            if not allow_auditor:
+                _log_access_denied(user, case_id, purpose, request, "Auditors cannot access sessions", conn)
+                raise AppError("FORBIDDEN", "Auditors cannot access sessions")
             # Auditor can view case metadata only
             if level != "view":
                 _log_access_denied(user, case_id, purpose, request, "Auditors cannot mutate cases", conn)
@@ -154,5 +164,77 @@ def require_case_access(level: str = "view") -> Callable:
 
         _log_access_denied(user, case_id, purpose, request, "Unauthorized role for case access", conn)
         raise AppError("FORBIDDEN", "Unauthorized role for case access")
+
+    return dependency
+
+
+def require_session_access(level: str = "view") -> Callable:
+    """
+    Implements session access control per §6.3 and §7.1:
+    - auditor -> strictly forbidden (403 FORBIDDEN, writes access.denied with session's case_id)
+    - supervisor -> allowed on all sessions
+    - investigator/artist/admin -> allowed only if active non-revoked case_access exists for the session's case
+      (edit required if level='edit')
+    - require X-Access-Purpose
+    """
+    def dependency(
+        request: Request,
+        sid: str = FastApiPath(...),
+        user: dict = Depends(get_current_user),
+        purpose: str = Depends(require_access_purpose),
+        conn: Connection = Depends(get_connection),
+    ) -> dict:
+        role = user["role"]
+        user_id = user["id"]
+
+        session_row = conn.execute(
+            text(
+                """
+                SELECT id, case_id, witness_id, kind, status, current_round,
+                       current_snapshot_id, locked_features_json, selected_image_id,
+                       created_by, created_at, updated_at, completed_at
+                FROM sessions
+                WHERE id = :sid
+                """
+            ),
+            {"sid": sid},
+        ).mappings().fetchone()
+        if not session_row:
+            raise AppError("NOT_FOUND", f"Session '{sid}' not found")
+
+        case_id = session_row["case_id"]
+
+        # Auditor cannot access session content (§6.3, TB4.3)
+        if role == "auditor":
+            _log_access_denied(user, case_id, purpose, request, "Auditors cannot access sessions", conn)
+            raise AppError("FORBIDDEN", "Auditors cannot access sessions")
+
+        if role == "supervisor":
+            return {"session": dict(session_row), "user": user, "purpose": purpose}
+
+        if role in ("investigator", "artist", "admin"):
+            access_row = conn.execute(
+                text(
+                    """
+                    SELECT access_level, revoked_at
+                    FROM case_access
+                    WHERE case_id = :case_id AND user_id = :user_id AND revoked_at IS NULL
+                    """
+                ),
+                {"case_id": case_id, "user_id": user_id},
+            ).mappings().fetchone()
+
+            if not access_row:
+                _log_access_denied(user, case_id, purpose, request, "Access to this case has not been granted or was revoked", conn)
+                raise AppError("FORBIDDEN", "Access to this case has not been granted or was revoked")
+
+            if level == "edit" and access_row["access_level"] != "edit":
+                _log_access_denied(user, case_id, purpose, request, "Edit permission required for this operation", conn)
+                raise AppError("FORBIDDEN", "Edit permission required for this operation")
+
+            return {"session": dict(session_row), "user": user, "purpose": purpose}
+
+        _log_access_denied(user, case_id, purpose, request, "Unauthorized role for session access", conn)
+        raise AppError("FORBIDDEN", "Unauthorized role for session access")
 
     return dependency

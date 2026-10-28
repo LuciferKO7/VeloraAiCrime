@@ -10,7 +10,7 @@ from backend.app.audit.chain import write_audit_entry
 from backend.app.auth.deps import require_role
 from backend.app.core.errors import AppError
 from backend.app.core.security import hash_password
-from backend.app.db.session import get_connection
+from backend.app.db.session import atomic_mutation, get_connection
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -72,39 +72,39 @@ def create_user(
     pwd_hash = hash_password(body.password)
     now_iso = datetime.now(UTC).isoformat()
 
-    conn.execute(
-        text(
-            """
-            INSERT INTO users (id, username, full_name, role, password_hash, is_active, failed_logins, created_at)
-            VALUES (:id, :username, :full_name, :role, :pwd_hash, 1, 0, :created_at)
-            """
-        ),
-        {
-            "id": user_id,
-            "username": body.username.strip(),
-            "full_name": body.full_name.strip(),
-            "role": body.role,
-            "pwd_hash": pwd_hash,
-            "created_at": now_iso,
-        },
-    )
-    conn.commit()
-
     client_ip = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
-    write_audit_entry(
-        conn,
-        action="user.create",
-        user_id=current_user["id"],
-        username=current_user["username"],
-        role=current_user["role"],
-        resource_type="user",
-        resource_id=user_id,
-        ip=client_ip,
-        user_agent=user_agent,
-        status_code=201,
-        details={"created_user_id": user_id, "username": body.username.strip(), "role": body.role},
-    )
+
+    with atomic_mutation(conn):
+        conn.execute(
+            text(
+                """
+                INSERT INTO users (id, username, full_name, role, password_hash, is_active, failed_logins, created_at)
+                VALUES (:id, :username, :full_name, :role, :pwd_hash, 1, 0, :created_at)
+                """
+            ),
+            {
+                "id": user_id,
+                "username": body.username.strip(),
+                "full_name": body.full_name.strip(),
+                "role": body.role,
+                "pwd_hash": pwd_hash,
+                "created_at": now_iso,
+            },
+        )
+        write_audit_entry(
+            conn,
+            action="user.create",
+            user_id=current_user["id"],
+            username=current_user["username"],
+            role=current_user["role"],
+            resource_type="user",
+            resource_id=user_id,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=201,
+            details={"created_user_id": user_id, "username": body.username.strip(), "role": body.role},
+        )
 
     return UserResponse(
         id=user_id,
@@ -150,30 +150,31 @@ def update_user(
         updates.append("is_active = :is_active")
         params["is_active"] = body.is_active
 
-    if updates:
-        sql = f"UPDATE users SET {', '.join(updates)} WHERE id = :id"
-        conn.execute(text(sql), params)
-        conn.commit()
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    with atomic_mutation(conn):
+        if updates:
+            sql = f"UPDATE users SET {', '.join(updates)} WHERE id = :id"
+            conn.execute(text(sql), params)
+
+        write_audit_entry(
+            conn,
+            action="user.update",
+            user_id=current_user["id"],
+            username=current_user["username"],
+            role=current_user["role"],
+            resource_type="user",
+            resource_id=user_id,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=200,
+            details={"updated_user_id": user_id, "fields": [k for k, v in body.model_dump(exclude_unset=True).items() if k != "password"]},
+        )
 
     updated = conn.execute(
         text("SELECT id, username, full_name, role, is_active, created_at, last_login_at FROM users WHERE id = :id"),
         {"id": user_id},
     ).mappings().fetchone()
-
-    client_ip = request.client.host if request.client else None
-    user_agent = request.headers.get("user-agent")
-    write_audit_entry(
-        conn,
-        action="user.update",
-        user_id=current_user["id"],
-        username=current_user["username"],
-        role=current_user["role"],
-        resource_type="user",
-        resource_id=user_id,
-        ip=client_ip,
-        user_agent=user_agent,
-        status_code=200,
-        details={"updated_user_id": user_id, "fields": [k for k, v in body.model_dump(exclude_unset=True).items() if k != "password"]},
-    )
 
     return dict(updated)

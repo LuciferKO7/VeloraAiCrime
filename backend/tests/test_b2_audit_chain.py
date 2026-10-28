@@ -474,6 +474,13 @@ EXISTING_7_1_AUDITED_ENDPOINTS = [
     ("PATCH", "/api/v1/users/{id}", "user.update"),
     ("POST", "/api/v1/cases", "case.create"),
     ("GET", "/api/v1/cases/{id}", "case.view"),
+    ("PATCH", "/api/v1/cases/{id}", "case.update"),
+    ("POST", "/api/v1/cases/{id}/access", "case.access_grant"),
+    ("DELETE", "/api/v1/cases/{id}/access/{user_id}", "case.access_revoke"),
+    ("POST", "/api/v1/cases/{id}/witnesses", "witness.create"),
+    ("POST", "/api/v1/cases/{id}/sessions", "session.create"),
+    ("GET", "/api/v1/sessions/{sid}", "session.view"),
+    ("POST", "/api/v1/sessions/{sid}/complete", "session.complete"),
     ("GET", "/api/v1/audit", "audit.view"),
     ("GET", "/api/v1/audit/verify", "audit.verify"),
     ("GET", "/api/v1/audit/export", "audit.export"),
@@ -550,6 +557,137 @@ def test_tb2_8_all_existing_7_1_endpoints_audited(temp_db, client, method, path,
         res = client.get(
             f"/api/v1/cases/{cid}",
             headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Viewing case for audit"},
+        )
+        assert res.status_code == 200
+    elif expected_action == "case.update":
+        cnum = f"FIR-{uuid.uuid4().hex[:6]}"
+        c_res = client.post(
+            "/api/v1/cases",
+            json={"case_number": cnum, "title": "Before Update"},
+            headers={"Authorization": f"Bearer {supervisor_tok}"},
+        )
+        cid = c_res.json()["id"]
+        res = client.patch(
+            f"/api/v1/cases/{cid}",
+            json={"title": "After Update"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Updating case details"},
+        )
+        assert res.status_code == 200
+    elif expected_action == "case.access_grant":
+        cnum = f"FIR-{uuid.uuid4().hex[:6]}"
+        c_res = client.post(
+            "/api/v1/cases",
+            json={"case_number": cnum, "title": "Access Grant Case"},
+            headers={"Authorization": f"Bearer {supervisor_tok}"},
+        )
+        cid = c_res.json()["id"]
+        res = client.post(
+            f"/api/v1/cases/{cid}/access",
+            json={"user_id": users["investigator"]["id"], "access_level": "edit"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Granting investigator access"},
+        )
+        assert res.status_code == 201
+    elif expected_action == "case.access_revoke":
+        cnum = f"FIR-{uuid.uuid4().hex[:6]}"
+        c_res = client.post(
+            "/api/v1/cases",
+            json={"case_number": cnum, "title": "Access Revoke Case"},
+            headers={"Authorization": f"Bearer {supervisor_tok}"},
+        )
+        cid = c_res.json()["id"]
+        client.post(
+            f"/api/v1/cases/{cid}/access",
+            json={"user_id": users["investigator"]["id"], "access_level": "edit"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Granting before revoke"},
+        )
+        res = client.delete(
+            f"/api/v1/cases/{cid}/access/{users['investigator']['id']}",
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Revoking investigator access"},
+        )
+        assert res.status_code == 200
+    elif expected_action == "witness.create":
+        cnum = f"FIR-{uuid.uuid4().hex[:6]}"
+        c_res = client.post(
+            "/api/v1/cases",
+            json={"case_number": cnum, "title": "Witness Case"},
+            headers={"Authorization": f"Bearer {supervisor_tok}"},
+        )
+        cid = c_res.json()["id"]
+        res = client.post(
+            f"/api/v1/cases/{cid}/witnesses",
+            json={"alias": "W-001", "preferred_language": "ta"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Registering witness"},
+        )
+        assert res.status_code == 201
+    elif expected_action == "session.create":
+        cnum = f"FIR-{uuid.uuid4().hex[:6]}"
+        c_res = client.post(
+            "/api/v1/cases",
+            json={"case_number": cnum, "title": "Session Create Case"},
+            headers={"Authorization": f"Bearer {supervisor_tok}"},
+        )
+        cid = c_res.json()["id"]
+        w_res = client.post(
+            f"/api/v1/cases/{cid}/witnesses",
+            json={"preferred_language": "en"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Registering witness for session"},
+        )
+        wid = w_res.json()["id"]
+        res = client.post(
+            f"/api/v1/cases/{cid}/sessions",
+            json={"witness_id": wid, "kind": "face"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Initiating interview session"},
+        )
+        assert res.status_code == 201
+    elif expected_action == "session.view":
+        cnum = f"FIR-{uuid.uuid4().hex[:6]}"
+        c_res = client.post(
+            "/api/v1/cases",
+            json={"case_number": cnum, "title": "Session View Case"},
+            headers={"Authorization": f"Bearer {supervisor_tok}"},
+        )
+        cid = c_res.json()["id"]
+        w_res = client.post(
+            f"/api/v1/cases/{cid}/witnesses",
+            json={"preferred_language": "en"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Registering witness"},
+        )
+        wid = w_res.json()["id"]
+        s_res = client.post(
+            f"/api/v1/cases/{cid}/sessions",
+            json={"witness_id": wid, "kind": "face"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Initiating interview session"},
+        )
+        sid = s_res.json()["id"]
+        res = client.get(
+            f"/api/v1/sessions/{sid}",
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Loading session state"},
+        )
+        assert res.status_code == 200
+    elif expected_action == "session.complete":
+        cnum = f"FIR-{uuid.uuid4().hex[:6]}"
+        c_res = client.post(
+            "/api/v1/cases",
+            json={"case_number": cnum, "title": "Session Complete Case"},
+            headers={"Authorization": f"Bearer {supervisor_tok}"},
+        )
+        cid = c_res.json()["id"]
+        w_res = client.post(
+            f"/api/v1/cases/{cid}/witnesses",
+            json={"preferred_language": "en"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Registering witness"},
+        )
+        wid = w_res.json()["id"]
+        s_res = client.post(
+            f"/api/v1/cases/{cid}/sessions",
+            json={"witness_id": wid, "kind": "face"},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Initiating interview session"},
+        )
+        sid = s_res.json()["id"]
+        res = client.post(
+            f"/api/v1/sessions/{sid}/complete",
+            json={"final_image_id": None},
+            headers={"Authorization": f"Bearer {supervisor_tok}", "X-Access-Purpose": "Completing interview session"},
         )
         assert res.status_code == 200
     elif expected_action == "audit.view":

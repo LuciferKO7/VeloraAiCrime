@@ -1,7 +1,8 @@
 from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 
-from sqlalchemy import MetaData, create_engine, event
+from sqlalchemy import MetaData, create_engine, event, text
 from sqlalchemy.engine import Connection, Engine
 
 from backend.app.core.config import settings
@@ -24,6 +25,28 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.close()
+
+
+@contextmanager
+def atomic_mutation(conn: Connection):
+    """
+    Executes a business mutation and its hash-chained audit record in a single
+    immediate SQLite transaction (BEGIN IMMEDIATE).
+    Guarantees that both the mutation and the audit record commit together,
+    or both roll back on any failure.
+    """
+    conn.info["in_atomic_mutation"] = True
+    try:
+        if conn.in_transaction():
+            conn.rollback()
+        conn.execute(text("BEGIN IMMEDIATE"))
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.info.pop("in_atomic_mutation", None)
 
 
 _engine = None

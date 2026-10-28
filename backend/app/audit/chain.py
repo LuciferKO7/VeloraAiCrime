@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 
 from backend.app.db.session import get_engine
 
@@ -133,87 +133,92 @@ def write_audit_entry(
     }
     canonical = compute_canonical(canonical_dict)
 
-    if hasattr(engine, "engine"):
-        target_engine = engine.engine
+    def _insert_entry(c: Connection) -> dict[str, Any]:
+        row = c.execute(
+            text("SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1")
+        ).fetchone()
+
+        if row is None:
+            seq = 1
+            prev_hash = GENESIS_PREV_HASH
+        else:
+            seq = row[0] + 1
+            prev_hash = row[1]
+
+        entry_hash = compute_entry_hash(prev_hash, canonical)
+
+        c.execute(
+            text(
+                """
+                INSERT INTO audit_log (
+                    seq, ts, user_id, username, role, action,
+                    resource_type, resource_id, case_id, purpose,
+                    ip, user_agent, status_code, details_json,
+                    prev_hash, entry_hash
+                ) VALUES (
+                    :seq, :ts, :user_id, :username, :role, :action,
+                    :resource_type, :resource_id, :case_id, :purpose,
+                    :ip, :user_agent, :status_code, :details_json,
+                    :prev_hash, :entry_hash
+                )
+                """
+            ),
+            {
+                "seq": seq,
+                "ts": ts,
+                "user_id": user_id,
+                "username": username,
+                "role": role,
+                "action": action,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "case_id": case_id,
+                "purpose": purpose,
+                "ip": ip,
+                "user_agent": user_agent,
+                "status_code": status_code,
+                "details_json": details_json,
+                "prev_hash": prev_hash,
+                "entry_hash": entry_hash,
+            },
+        )
+        return {
+            "seq": seq,
+            "ts": ts,
+            "user_id": user_id,
+            "username": username,
+            "role": role,
+            "action": action,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "case_id": case_id,
+            "purpose": purpose,
+            "ip": ip,
+            "user_agent": user_agent,
+            "status_code": status_code,
+            "details": details_dict,
+            "prev_hash": prev_hash,
+            "entry_hash": entry_hash,
+        }
+
+    if isinstance(engine, Connection):
+        res = _insert_entry(engine)
+        if not engine.info.get("in_atomic_mutation"):
+            # Standalone write on connection (e.g. read view or access.denied) -> commit immediately
+            engine.commit()
+        return res
     else:
+        # engine is an Engine or None (e.g. parallel worker threads, error handlers)
         target_engine = engine or get_engine()
-
-    # In SQLite WAL mode, execution_options(isolation_level="AUTOCOMMIT") allows
-    # explicit BEGIN IMMEDIATE transactions without SQLAlchemy driver collision.
-    with target_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        conn.execute(text("BEGIN IMMEDIATE"))
-        try:
-            row = conn.execute(
-                text("SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1")
-            ).fetchone()
-
-            if row is None:
-                seq = 1
-                prev_hash = GENESIS_PREV_HASH
-            else:
-                seq = row[0] + 1
-                prev_hash = row[1]
-
-            entry_hash = compute_entry_hash(prev_hash, canonical)
-
-            conn.execute(
-                text(
-                    """
-                    INSERT INTO audit_log (
-                        seq, ts, user_id, username, role, action,
-                        resource_type, resource_id, case_id, purpose,
-                        ip, user_agent, status_code, details_json,
-                        prev_hash, entry_hash
-                    ) VALUES (
-                        :seq, :ts, :user_id, :username, :role, :action,
-                        :resource_type, :resource_id, :case_id, :purpose,
-                        :ip, :user_agent, :status_code, :details_json,
-                        :prev_hash, :entry_hash
-                    )
-                    """
-                ),
-                {
-                    "seq": seq,
-                    "ts": ts,
-                    "user_id": user_id,
-                    "username": username,
-                    "role": role,
-                    "action": action,
-                    "resource_type": resource_type,
-                    "resource_id": resource_id,
-                    "case_id": case_id,
-                    "purpose": purpose,
-                    "ip": ip,
-                    "user_agent": user_agent,
-                    "status_code": status_code,
-                    "details_json": details_json,
-                    "prev_hash": prev_hash,
-                    "entry_hash": entry_hash,
-                },
-            )
-            conn.execute(text("COMMIT"))
-        except Exception:
-            conn.execute(text("ROLLBACK"))
-            raise
-
-    return {
-        "seq": seq,
-        "ts": ts,
-        "user_id": user_id,
-        "username": username,
-        "role": role,
-        "action": action,
-        "resource_type": resource_type,
-        "resource_id": resource_id,
-        "case_id": case_id,
-        "purpose": purpose,
-        "ip": ip,
-        "user_agent": user_agent,
-        "status_code": status_code,
-        "details_json": details_json,
-        "prev_hash": prev_hash,
-        "entry_hash": entry_hash,
-    }
+        with target_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(text("BEGIN IMMEDIATE"))
+            try:
+                res = _insert_entry(conn)
+                conn.execute(text("COMMIT"))
+                return res
+            except Exception:
+                conn.execute(text("ROLLBACK"))
+                raise
 
 
 def verify_audit_chain(engine: Engine | None = None) -> dict[str, Any]:
