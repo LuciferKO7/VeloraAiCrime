@@ -1,0 +1,287 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scene",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
+    },
+    "canvas": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string",
+          "enum": [
+            "normalized"
+          ]
+        },
+        "scale_confidence": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "rough",
+            "measured"
+          ]
+        },
+        "approx_width_m": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "approx_height_m": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "unit",
+        "scale_confidence"
+      ],
+      "additionalProperties": false
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "indoor",
+            "outdoor",
+            "road",
+            "building",
+            "other"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "lighting": {
+          "type": "string",
+          "enum": [
+            "day",
+            "night",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "description",
+        "lighting"
+      ],
+      "additionalProperties": false
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "vehicle",
+              "weapon",
+              "object",
+              "door",
+              "window",
+              "furniture",
+              "road",
+              "landmark",
+              "other"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "suspect",
+              "victim",
+              "witness",
+              "bystander",
+              "unknown",
+              null
+            ]
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "rotation_deg": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 359
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "sure",
+              "somewhat",
+              "unsure"
+            ]
+          },
+          "source_statement_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "statement_id": {
+                  "type": "string"
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 1.0
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 1.0
+                }
+              },
+              "required": [
+                "statement_id",
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "x",
+          "y"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "t_order": {
+            "type": "integer"
+          },
+          "time_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "entity_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "movement": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "entity_id": {
+                  "type": "string"
+                },
+                "from": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "to": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "entity_id",
+                "from",
+                "to"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "t_order",
+          "description",
+          "entity_ids"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "unmapped_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "canvas",
+    "environment",
+    "entities",
+    "events"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/check_no_mocks.sh --all || { echo "PUSH BLOCKED: remove mock data/secrets (see list above)."; exit 1; }

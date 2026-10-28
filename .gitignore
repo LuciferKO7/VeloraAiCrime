@@ -1,0 +1,114 @@
+# Environment secrets
+.env
+.env.*
+.env*.local
+!.env.example
+
+# Databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Local data & logs
+data/
+backend/data/
+backend/storage/
+ml_service/data/
+ml_service/storage/
+speech_service/data/
+training/**/out/
+__dev__/
+*.log
+egress.log
+
+# Model weights & checkpoints
+models/
+weights/
+ml_service/models/
+ml_service/weights/
+speech_service/models/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.ckpt
+*.h5
+*.joblib
+
+# Generated reports & test coverage
+reports/
+coverage/
+.coverage
+.coverage.*
+htmlcov/
+playwright-report/
+ml_service/reports/*
+!ml_service/reports/.gitkeep
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Dependency directories & build artifacts
+node_modules/
+frontend/dist/
+frontend/.cache/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Generated audio and video files
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.flac
+*.webm
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# OS & Editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Preserve empty directory markers
+!.gitkeep

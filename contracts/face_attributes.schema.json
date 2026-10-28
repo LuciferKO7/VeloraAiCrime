@@ -1,0 +1,2000 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FaceAttributes",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
+    },
+    "attributes": {
+      "type": "object",
+      "properties": {
+        "sex_presentation": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: global",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "male",
+                "female",
+                "unspecified",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "age_band": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: global",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "child",
+                "teen",
+                "young_adult",
+                "adult",
+                "middle_aged",
+                "senior",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "appearance_group": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: global",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "south_asian",
+                "east_asian",
+                "southeast_asian",
+                "white",
+                "black",
+                "middle_eastern",
+                "latino",
+                "mixed_other",
+                "unspecified",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "face_shape": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: global",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "oval",
+                "round",
+                "square",
+                "long",
+                "heart",
+                "diamond",
+                "rectangular",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "skin_tone": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: skin",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "very_fair",
+                "fair",
+                "wheatish",
+                "medium_brown",
+                "brown",
+                "dark_brown",
+                "dark",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "forehead": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: forehead",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "cheeks": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: cheeks",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "hollow",
+                "average",
+                "full",
+                "high_cheekbones",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "jaw_shape": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: jaw",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "pointed",
+                "rounded",
+                "square",
+                "angular",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "jaw_width": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: jaw",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "narrow",
+                "medium",
+                "wide",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "chin": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: chin",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "pointed",
+                "rounded",
+                "square",
+                "cleft",
+                "receding",
+                "prominent",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "eye_shape": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: eyes",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "almond",
+                "round",
+                "hooded",
+                "deep_set",
+                "upturned",
+                "downturned",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "eye_size": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: eyes",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "small",
+                "medium",
+                "large",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "eye_spacing": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: eyes",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "close",
+                "average",
+                "wide",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "eye_color": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: eyes",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "black",
+                "dark_brown",
+                "brown",
+                "light_brown",
+                "hazel",
+                "green",
+                "blue",
+                "grey",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "eyebrow_thickness": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: eyebrows",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "thin",
+                "medium",
+                "thick",
+                "bushy",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "eyebrow_shape": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: eyebrows",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "straight",
+                "arched",
+                "curved",
+                "joined",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "nose_bridge": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: nose",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "narrow",
+                "medium",
+                "broad",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "nose_length": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: nose",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "short",
+                "medium",
+                "long",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "nose_tip": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: nose",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "pointed",
+                "rounded",
+                "bulbous",
+                "upturned",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "nostrils": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: nose",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "narrow",
+                "medium",
+                "flared",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "lips_fullness": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: mouth",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "thin",
+                "medium",
+                "full",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "mouth_width": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: mouth",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "small",
+                "medium",
+                "wide",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "ears": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: ears",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "small",
+                "medium",
+                "large",
+                "protruding",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "hair_length": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: hair",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "bald",
+                "shaved",
+                "short",
+                "medium",
+                "long",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "hair_style": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: hair",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "straight",
+                "wavy",
+                "curly",
+                "receding",
+                "spiky",
+                "bun",
+                "ponytail",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "hair_color": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: hair",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "black",
+                "dark_brown",
+                "brown",
+                "grey",
+                "white",
+                "dyed_other",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "hairline": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: hair",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "straight",
+                "receding",
+                "widows_peak",
+                "high",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "facial_hair_type": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: facial_hair",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "none",
+                "stubble",
+                "mustache",
+                "beard",
+                "goatee",
+                "sideburns",
+                "mustache_and_beard",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "facial_hair_density": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: facial_hair",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "light",
+                "medium",
+                "dense",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "facial_hair_length": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: facial_hair",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "short",
+                "medium",
+                "long",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "glasses": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: glasses",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "none",
+                "rimmed",
+                "rimless",
+                "sunglasses",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "headwear": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Region: headwear",
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "none",
+                "cap",
+                "turban",
+                "scarf",
+                "hood",
+                "helmet",
+                null
+              ]
+            },
+            "intensity": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "confidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "sure",
+                "somewhat",
+                "unsure",
+                null
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "stated",
+                "inferred",
+                "default",
+                "user_edit",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "scar",
+                  "mole",
+                  "tattoo",
+                  "birthmark",
+                  "piercing",
+                  "wrinkle_lines",
+                  "acne_marks",
+                  "other"
+                ]
+              },
+              "location": {
+                "type": "string",
+                "enum": [
+                  "left_cheek",
+                  "right_cheek",
+                  "forehead",
+                  "nose",
+                  "chin",
+                  "left_eyebrow",
+                  "right_eyebrow",
+                  "lip",
+                  "neck",
+                  "left_ear",
+                  "right_ear",
+                  "other"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "confidence": {
+                "type": "string",
+                "enum": [
+                  "sure",
+                  "somewhat",
+                  "unsure"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "stated",
+                  "user_edit"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "location",
+              "description"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "sex_presentation",
+        "age_band",
+        "appearance_group",
+        "face_shape",
+        "skin_tone",
+        "forehead",
+        "cheeks",
+        "jaw_shape",
+        "jaw_width",
+        "chin",
+        "eye_shape",
+        "eye_size",
+        "eye_spacing",
+        "eye_color",
+        "eyebrow_thickness",
+        "eyebrow_shape",
+        "nose_bridge",
+        "nose_length",
+        "nose_tip",
+        "nostrils",
+        "lips_fullness",
+        "mouth_width",
+        "ears",
+        "hair_length",
+        "hair_style",
+        "hair_color",
+        "hairline",
+        "facial_hair_type",
+        "facial_hair_density",
+        "facial_hair_length",
+        "glasses",
+        "headwear"
+      ],
+      "additionalProperties": false
+    },
+    "marks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "scar",
+              "mole",
+              "tattoo",
+              "birthmark",
+              "piercing",
+              "wrinkle_lines",
+              "acne_marks",
+              "other"
+            ]
+          },
+          "location": {
+            "type": "string",
+            "enum": [
+              "left_cheek",
+              "right_cheek",
+              "forehead",
+              "nose",
+              "chin",
+              "left_eyebrow",
+              "right_eyebrow",
+              "lip",
+              "neck",
+              "left_ear",
+              "right_ear",
+              "other"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "sure",
+              "somewhat",
+              "unsure"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "stated",
+              "user_edit"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "location",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "unmapped_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "attributes"
+  ],
+  "additionalProperties": false
+}
