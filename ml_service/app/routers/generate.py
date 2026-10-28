@@ -256,6 +256,9 @@ async def generate_sketches(req: GenerateRequest) -> GenerateResponse:
     if torch.cuda.is_available() and "cuda" in model_manager.device:
         peak_vram = round(torch.cuda.max_memory_allocated() / (1024**2), 1)
 
+    # Proactively release intermediate activation memory to prevent fragmentation
+    model_manager.clean_vram_cache()
+
     logger.info(
         "Successfully generated %d sketch(es) for case=%s in %.2fs (Peak VRAM: %.1f MiB)",
         len(generated_items),

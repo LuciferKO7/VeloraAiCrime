@@ -107,6 +107,12 @@ def test_ta1_4_model_manager_unload():
     assert model_manager.is_loaded is False
 
 
+def test_ta1_4_model_manager_clean_cache():
+    """Verify clean_vram_cache runs safely without throwing exceptions."""
+    model_manager.clean_vram_cache()
+
+
+
 # ============================================================================
 # TA1.5: Standardized Error Handling (§6.3)
 # ============================================================================

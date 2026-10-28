@@ -83,6 +83,18 @@ class ModelManager:
 
         return status
 
+    def clean_vram_cache(self) -> None:
+        """Explicit garbage collection and CUDA cache release to prevent VRAM fragmentation."""
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            if hasattr(torch.cuda, "ipc_collect"):
+                try:
+                    torch.cuda.ipc_collect()
+                except Exception:
+                    pass
+        logger.debug("VRAM cache cleared successfully.")
+
     def unload_active_model(self) -> None:
         """Evicts active pipeline from VRAM, cleans CUDA cache and garbage collector."""
         with self._pipeline_lock:
@@ -94,11 +106,7 @@ class ModelManager:
                 self.active_vae_id = None
                 self.active_lora_id = None
 
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
-            logger.debug("VRAM cache cleared successfully.")
+            self.clean_vram_cache()
 
     def load_pipeline(
         self,
@@ -126,9 +134,7 @@ class ModelManager:
                 logger.info("Swapping pipeline: unloading %s to load %s", self.active_model_id, model_id)
                 del self._pipeline
                 self._pipeline = None
-                gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                self.clean_vram_cache()
 
             logger.info("Loading generative pipeline: model=%s, vae=%s, lora=%s", model_id, vae_id, lcm_lora_id)
 

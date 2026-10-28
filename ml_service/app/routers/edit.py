@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field, model_validator
 from PIL import Image, ImageOps
+import numpy as np
 import torch
 
 from ml_service.app.core.auth import verify_service_key
@@ -138,9 +139,19 @@ async def edit_facial_region(req: EditRequest) -> EditResponse:
 
         generated_patch = res.images[0]
 
-        # Composite the newly generated patch onto the source image through the feathered mask
-        # Mask: 255 = inpaint (use generated_patch), 0 = preserve (use source_img)
-        final_img = Image.composite(generated_patch, source_img, mask_img)
+        # Harmonize paper tone and graphite contrast of the generated patch to match source sketch
+        src_arr = np.array(source_img.convert("L"), dtype=np.float32)
+        patch_arr = np.array(generated_patch.convert("L"), dtype=np.float32)
+        mu_src, std_src = float(np.mean(src_arr)), float(np.std(src_arr)) + 1e-5
+        mu_patch, std_patch = float(np.mean(patch_arr)), float(np.std(patch_arr)) + 1e-5
+
+        patch_rgb = np.array(generated_patch, dtype=np.float32)
+        harmonized_arr = (patch_rgb - mu_patch) * (std_src / std_patch) + mu_src
+        harmonized_patch = Image.fromarray(np.clip(harmonized_arr, 0, 255).astype(np.uint8))
+
+        # Composite the harmonized patch onto the source image through the feathered mask
+        # Mask: 255 = inpaint (use harmonized_patch), 0 = preserve (use source_img)
+        final_img = Image.composite(harmonized_patch, source_img, mask_img)
 
     except Exception as e:
         logger.error("Edit generation failed: %s", str(e), exc_info=True)

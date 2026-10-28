@@ -64,42 +64,42 @@ ATTRIBUTE_ENUM_REGISTRY: Dict[str, List[str]] = {
 
 
 def build_candidate_prompt(attribute_name: str, enum_val: str) -> str:
-    """Construct natural language probe for CLIP zero-shot classification."""
+    """Construct natural language probe for CLIP zero-shot classification aligned with sketch textures."""
     clean_val = enum_val.replace("_", " ")
 
     if attribute_name == "hair_length":
         if enum_val == "bald":
-            return "a photo of a completely bald person"
-        return f"a photo of a person with {clean_val} hair"
+            return "a forensic sketch portrait of a completely bald person with no hair"
+        return f"a forensic sketch portrait of a person with {clean_val} hair"
 
     if attribute_name == "sex_presentation":
         if enum_val == "male":
-            return "a portrait of a man"
+            return "a forensic sketch portrait of a man"
         if enum_val == "female":
-            return "a portrait of a woman"
-        return "a portrait of a person"
+            return "a forensic sketch portrait of a woman"
+        return "a forensic sketch portrait of a person"
 
     if attribute_name == "age_band":
-        return f"a portrait of a {clean_val} person"
+        return f"a forensic sketch portrait of a {clean_val} person"
 
     if attribute_name == "facial_hair_type":
         if enum_val == "none":
-            return "a portrait of a clean-shaven person without facial hair"
-        return f"a portrait of a person with a {clean_val}"
+            return "a forensic sketch portrait of a clean-shaven person without facial hair"
+        return f"a forensic sketch portrait of a person with a {clean_val}"
 
     if attribute_name == "glasses":
         if enum_val == "none":
-            return "a photo of a person with no glasses"
-        return f"a photo of a person wearing {clean_val} glasses"
+            return "a forensic sketch of a person with no glasses"
+        return f"a forensic sketch of a person wearing {clean_val} glasses"
 
     if attribute_name == "hair_color":
-        return f"a photo of a person with {clean_val} colored hair"
+        return f"a forensic sketch of a person with {clean_val} colored hair"
 
     if attribute_name == "eye_color":
-        return f"a close-up portrait of a person with {clean_val} eyes"
+        return f"a forensic sketch close-up portrait of a person with {clean_val} eyes"
 
     clean_attr = attribute_name.replace("_", " ")
-    return f"a portrait of a person with {clean_val} {clean_attr}"
+    return f"a forensic sketch portrait of a person with {clean_val} {clean_attr}"
 
 
 class CLIPAttributeVerifier:
