@@ -8,9 +8,20 @@ Adheres to MASTER_PROMPT.md §2 (GPU budgeting):
 
 import gc
 import logging
+import sys
 import threading
 from typing import Any, Dict, Optional
 import torch
+
+try:
+    import safetensors.torch
+    if sys.platform == "win32":
+        _orig_safetensors_load = safetensors.torch.load_file
+        def _safe_safetensors_load(filename, device="cpu", backend="pread"):
+            return _orig_safetensors_load(filename, device=device, backend=backend)
+        safetensors.torch.load_file = _safe_safetensors_load
+except Exception:
+    pass
 
 from ml_service.app.core.config import settings
 

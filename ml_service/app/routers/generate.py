@@ -27,6 +27,7 @@ from ml_service.app.core.auth import verify_service_key
 from ml_service.app.core.config import settings
 from ml_service.app.core.errors import MLError
 from ml_service.app.models.manager import model_manager
+from ml_service.app.pipelines.attribute_verifier import ATTRIBUTE_ENUM_REGISTRY, attribute_verifier
 from ml_service.app.pipelines.sketch_prompts import (
     SKETCH_NEGATIVE_PROMPT,
     build_facial_composite_prompt,
@@ -93,6 +94,7 @@ class GeneratedImageItem(BaseModel):
     height: int = Field(..., description="Image height in pixels")
     label: str = Field(..., description="Descriptive identifier for the output item")
     is_uncertain: bool = Field(False, description="Whether detail contains marked speculative assumptions")
+    attr_adherence: Optional[float] = Field(None, description="Zero-shot CLIP adherence score of stated attributes in [0, 1]")
 
 
 class GenerateResponse(BaseModel):
@@ -212,6 +214,21 @@ async def generate_sketches(req: GenerateRequest) -> GenerateResponse:
             pil_img = res.images[0]
             b64_uri = encode_image_to_base64_uri(pil_img)
 
+            # Compute zero-shot CLIP attribute adherence for facial composite sketches
+            item_adherence: Optional[float] = None
+            if req.module_type == "facial_composite" and req.facial_attributes:
+                candidate_attrs = [k for k in req.facial_attributes.keys() if k in ATTRIBUTE_ENUM_REGISTRY]
+                if candidate_attrs:
+                    try:
+                        v_res = attribute_verifier.verify_attributes(
+                            image=pil_img,
+                            requested_attributes=candidate_attrs,
+                            stated_attributes=req.facial_attributes,
+                        )
+                        item_adherence = v_res.get("attr_adherence")
+                    except Exception as ve:
+                        logger.warning("Could not calculate attribute adherence for item %d: %s", t["index"], str(ve))
+
             generated_items.append(
                 GeneratedImageItem(
                     index=t["index"],
@@ -222,6 +239,7 @@ async def generate_sketches(req: GenerateRequest) -> GenerateResponse:
                     height=pil_img.height,
                     label=t["label"],
                     is_uncertain=t["is_uncertain"],
+                    attr_adherence=item_adherence,
                 )
             )
     except Exception as e:

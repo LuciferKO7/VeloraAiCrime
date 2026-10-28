@@ -129,3 +129,35 @@ def test_ta1_5_custom_ml_error():
     assert err.code == "ML_BUSY"
     assert err.status_code == 503
     assert err.details["queue_length"] == 5
+
+
+# ============================================================================
+# Contract Addendum v1.1: Model Manifest Endpoint
+# ============================================================================
+def test_manifest_endpoint_unauthorized():
+    """Verify GET /ml/v1/manifest rejects requests without valid service key."""
+    response = client.get("/ml/v1/manifest")
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTH_INVALID"
+
+
+def test_manifest_endpoint_success():
+    """Verify GET /ml/v1/manifest returns model catalog matching schema."""
+    headers = {"X-Service-Key": settings.SERVICE_KEY}
+    response = client.get("/ml/v1/manifest", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert isinstance(data["models"], list)
+    assert len(data["models"]) >= 4
+
+    roles = {m["role"] for m in data["models"]}
+    assert "face_generator" in roles
+    assert "attribute_verifier" in roles
+    assert "face_embedder" in roles
+
+    for m in data["models"]:
+        assert "name" in m
+        assert "version" in m
+        assert "license" in m
+        assert "source" in m
