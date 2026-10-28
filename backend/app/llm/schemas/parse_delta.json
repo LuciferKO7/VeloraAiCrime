@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ParseDelta",
+  "type": "object",
+  "required": ["attributes", "marks", "unmapped_notes", "ambiguities"],
+  "additionalProperties": false,
+  "properties": {
+    "attributes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "type": ["string", "null"]
+          },
+          "intensity": {
+            "type": ["number", "null"],
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "confidence": {
+            "type": ["string", "null"],
+            "enum": ["sure", "somewhat", "unsure", null]
+          },
+          "source": {
+            "type": "string",
+            "enum": ["stated", "inferred"]
+          }
+        }
+      }
+    },
+    "marks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "location", "description", "confidence", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "scar",
+              "mole",
+              "tattoo",
+              "birthmark",
+              "piercing",
+              "wrinkle_lines",
+              "acne_marks",
+              "other"
+            ]
+          },
+          "location": {
+            "type": "string",
+            "enum": [
+              "left_cheek",
+              "right_cheek",
+              "forehead",
+              "nose",
+              "chin",
+              "left_eyebrow",
+              "right_eyebrow",
+              "lip",
+              "neck",
+              "left_ear",
+              "right_ear",
+              "other"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["sure", "somewhat", "unsure"]
+          },
+          "source": {
+            "type": "string",
+            "enum": ["stated", "user_edit"]
+          }
+        }
+      }
+    },
+    "unmapped_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ambiguities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

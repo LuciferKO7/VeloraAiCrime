@@ -5,10 +5,10 @@ Executes contracts/schema.sql followed by contracts/migrations/*.sql in order.
 Tracks applied files in an internal _migrations table.
 """
 import argparse
-from datetime import datetime, timezone
 import pathlib
 import sqlite3
 import sys
+from datetime import UTC, datetime
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -47,7 +47,7 @@ def init_db(db_path: pathlib.Path = None) -> bool:
         if schema_file.exists():
             sql = schema_file.read_text(encoding="utf-8")
             cursor.executescript(sql)
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(UTC).isoformat()
             cursor.execute("INSERT INTO _migrations (name, applied_at) VALUES (?, ?)", ("schema.sql", now_iso))
             conn.commit()
             print(f"Applied baseline: {schema_file.name}")
@@ -65,7 +65,7 @@ def init_db(db_path: pathlib.Path = None) -> bool:
             if mfile.name not in applied:
                 sql = mfile.read_text(encoding="utf-8")
                 cursor.executescript(sql)
-                now_iso = datetime.now(timezone.utc).isoformat()
+                now_iso = datetime.now(UTC).isoformat()
                 cursor.execute("INSERT INTO _migrations (name, applied_at) VALUES (?, ?)", (mfile.name, now_iso))
                 conn.commit()
                 print(f"Applied migration: {mfile.name}")

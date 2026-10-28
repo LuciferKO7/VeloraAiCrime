@@ -1,12 +1,16 @@
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from backend.app.auth.deps import require_role
 from backend.app.core.config import settings
 from backend.app.db.session import get_connection
+from backend.app.llm.providers.gemini import call_gemini
+from backend.app.llm.providers.ollama import call_ollama
 
 router = APIRouter(tags=["health"])
 
@@ -54,4 +58,67 @@ async def health_check(conn: Connection = Depends(get_connection)):
             "ollama": "configured" if settings.OLLAMA_URL else "unconfigured",
         },
         "time": now_iso,
+    }
+
+
+@router.get("/health/llm-live")
+def llm_live_check(current_user: dict = Depends(require_role("admin"))):
+    """
+    Live LLM provider connectivity check (§8.1, TB3.2).
+    Requires admin role.
+    Performs live probe to Gemini and Ollama and reports actual connectivity and latency.
+    Never exposes secrets or credentials in output.
+    """
+    gemini_res: dict[str, Any] = {
+        "ok": False,
+        "latency_ms": None,
+        "model": settings.GEMINI_MODEL_FAST or "gemini-2.5-flash",
+        "error": None,
+    }
+    ollama_res: dict[str, Any] = {
+        "ok": False,
+        "latency_ms": None,
+        "model": settings.OLLAMA_MODEL or "qwen2.5:3b-instruct",
+        "error": None,
+    }
+
+    # 1. Test Gemini
+    if not settings.GEMINI_API_KEY:
+        gemini_res["error"] = "GEMINI_API_KEY is not configured"
+    else:
+        try:
+            _, _, _, lat_ms = call_gemini(
+                model=gemini_res["model"],
+                system="",
+                user="ping",
+                temperature=0.0,
+                timeout_s=5.0,
+            )
+            gemini_res["ok"] = True
+            gemini_res["latency_ms"] = lat_ms
+        except Exception as exc:
+            gemini_res["ok"] = False
+            gemini_res["error"] = str(exc)
+
+    # 2. Test Ollama
+    if not settings.OLLAMA_URL:
+        ollama_res["error"] = "OLLAMA_URL is not configured"
+    else:
+        try:
+            _, _, _, lat_ms = call_ollama(
+                model=ollama_res["model"],
+                system="",
+                user="ping",
+                temperature=0.0,
+                timeout_s=5.0,
+            )
+            ollama_res["ok"] = True
+            ollama_res["latency_ms"] = lat_ms
+        except Exception as exc:
+            ollama_res["ok"] = False
+            ollama_res["error"] = str(exc)
+
+    return {
+        "gemini": gemini_res,
+        "ollama": ollama_res,
     }

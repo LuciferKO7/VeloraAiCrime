@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EditParse",
+  "type": "object",
+  "required": [
+    "kind",
+    "features",
+    "attribute_updates",
+    "strength",
+    "transform",
+    "needs_clarification"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["edit", "transform", "none"]
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "attribute_updates": {
+      "type": "object"
+    },
+    "strength": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "transform": {
+      "type": ["object", "null"],
+      "required": ["type", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["age", "remove_disguise", "side_profile"]
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    },
+    "needs_clarification": {
+      "type": ["string", "null"]
+    }
+  }
+}

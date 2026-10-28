@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Fail if mock data, fake switches, secrets, or forbidden files are tracked. Exit 1 on any
 finding."""
-import pathlib, re, subprocess, sys
+import pathlib
+import re
+import subprocess
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CODE_EXT = {

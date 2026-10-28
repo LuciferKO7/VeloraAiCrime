@@ -6,12 +6,13 @@ Refuses to run (exits non-zero) if any SEED_PASSWORD_* is empty.
 Passwords stored as Argon2 hashes.
 """
 import argparse
-from datetime import datetime, timezone
 import os
 import pathlib
 import sqlite3
 import sys
 import uuid
+from datetime import UTC, datetime
+
 from argon2 import PasswordHasher
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -62,7 +63,7 @@ def seed_users(db_path: pathlib.Path = None) -> bool:
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
 
     for role in ROLES:
         username = role

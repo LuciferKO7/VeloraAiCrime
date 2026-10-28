@@ -6,8 +6,8 @@ Progress tracker for Person B per §12 of `VELORA — MASTER PROMPT v1.1`.
 
 - [x] B0 Foundation commit (P0, T+0 -> T+0:45) — tests TB0.1–TB0.5 — result: TB0.1–TB0.5 PASS — commit: b817e94
 - [x] B1 DB layer, auth, RBAC, errors (P0, T+0:45 -> T+2) — tests TB1.1–TB1.8 — result: TB1.1–TB1.8 PASS — commit: ed5cdeb
-- [x] B2 Hash-chained audit log (P0, T+2 -> T+2:45) — tests TB2.1–TB2.8 — result: TB2.1–TB2.8 PASS — commit: pending
-- [ ] B3 LLM layer: Ollama + Gemini, router, live proof (P0, T+2:45 -> T+3:45) — tests TB3.1–TB3.9 — result: — commit:
+- [x] B2 Hash-chained audit log (P0, T+2 -> T+2:45) — tests TB2.1–TB2.8 — result: TB2.1–TB2.8 PASS — commit: b817efd
+- [x] B3 LLM layer: Ollama + Gemini, router, live proof (P0, T+2:45 -> T+3:45) — tests TB3.1–TB3.9 — result: TB3.1–TB3.9 PASS — commit: pending
 - [ ] B4 Cases, witnesses, sessions, access (P0, T+3:45 -> T+4:30) — tests TB4.1–TB4.5 — result: — commit:
 - [ ] B5 Statement pipeline (P0, T+4:30 -> T+6) — tests TB5.1–TB5.10 — result: — commit:
 - [ ] B6 ML proxy and rounds (P0, T+6 -> T+7:30) — tests TB6.1–TB6.8 — result: — commit:
