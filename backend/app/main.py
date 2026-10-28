@@ -18,7 +18,13 @@ from backend.app.core.errors import (
     validation_error_handler,
 )
 from backend.app.core.logging import logger
+from backend.app.core.middleware import (
+    RequestSizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
+from backend.app.db.session import get_engine
 from backend.app.routers.auth import limiter
+from backend.app.services.registry_sync import sync_model_registry
 
 
 def discover_routers(app: FastAPI, prefix: str = "/api/v1"):
@@ -38,6 +44,14 @@ async def lifespan(app: FastAPI):
     # Startup: validate secrets fail-fast
     settings.validate_secrets()
     logger.info("Configuration validated and backend hub initialized")
+
+    # Model registry startup synchronization (§8.0, Step B12)
+    try:
+        sync_model_registry()
+    except Exception as exc:
+        logger.warning("Model registry startup synchronization failed: %s", exc)
+
+    # Gallery index initialization (§8.7, Step B11)
     try:
         from backend.app.services.gallery_service import gallery_index
 
@@ -45,7 +59,15 @@ async def lifespan(app: FastAPI):
         logger.info("Gallery embedding matrix initialized: %d faces loaded", len(gallery_index))
     except Exception as exc:
         logger.warning("Could not initialize gallery embedding matrix on startup: %s", exc)
+
     yield
+
+    # Shutdown: dispose database engine cleanly
+    try:
+        get_engine().dispose()
+        logger.info("Database engine disposed cleanly")
+    except Exception as exc:
+        logger.warning("Error during database engine disposal: %s", exc)
 
 
 def create_app() -> FastAPI:
@@ -58,6 +80,12 @@ def create_app() -> FastAPI:
     # Rate limiting state
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # Security headers (outermost so all responses get headers)
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    # Request body size limits (rejects oversized requests with 413)
+    app.add_middleware(RequestSizeLimitMiddleware)
 
     # CORS
     app.add_middleware(

@@ -101,6 +101,7 @@ def _token(users: dict, role: str) -> str:
 def test_tb10_1_list_glossary_status_filter(temp_db, client):
     users = temp_db["users"]
     engine = temp_db["engine"]
+    sup_tok = _token(users, "supervisor")
     inv_tok = _token(users, "investigator")
     admin_id = users["admin"]["id"]
     now = "2026-10-28T12:00:00.000Z"
@@ -139,15 +140,19 @@ def test_tb10_1_list_glossary_status_filter(temp_db, client):
     resp_unauth = client.get("/api/v1/glossary")
     assert resp_unauth.status_code == 401
 
+    # Non-supervisor/admin -> 403
+    resp_inv_forbidden = client.get("/api/v1/glossary", headers={"Authorization": f"Bearer {inv_tok}"})
+    assert resp_inv_forbidden.status_code == 403
+
     # 2. List all without status
-    resp_all = client.get("/api/v1/glossary", headers={"Authorization": f"Bearer {inv_tok}"})
+    resp_all = client.get("/api/v1/glossary", headers={"Authorization": f"Bearer {sup_tok}"})
     assert resp_all.status_code == 200
     data_all = resp_all.json()
     assert len(data_all) == 3
     assert all("maps_to" in d for d in data_all)
 
     # 3. Filter by pending
-    resp_p = client.get("/api/v1/glossary?status=pending", headers={"Authorization": f"Bearer {inv_tok}"})
+    resp_p = client.get("/api/v1/glossary?status=pending", headers={"Authorization": f"Bearer {sup_tok}"})
     assert resp_p.status_code == 200
     data_p = resp_p.json()
     assert len(data_p) == 1
@@ -155,7 +160,7 @@ def test_tb10_1_list_glossary_status_filter(temp_db, client):
     assert data_p[0]["status"] == "pending"
 
     # 4. Filter by approved
-    resp_a = client.get("/api/v1/glossary?status=approved", headers={"Authorization": f"Bearer {inv_tok}"})
+    resp_a = client.get("/api/v1/glossary?status=approved", headers={"Authorization": f"Bearer {sup_tok}"})
     assert resp_a.status_code == 200
     data_a = resp_a.json()
     assert len(data_a) == 1
@@ -163,7 +168,7 @@ def test_tb10_1_list_glossary_status_filter(temp_db, client):
     assert data_a[0]["status"] == "approved"
 
     # 5. Invalid status filter -> 422
-    resp_inv = client.get("/api/v1/glossary?status=invalid_status", headers={"Authorization": f"Bearer {inv_tok}"})
+    resp_inv = client.get("/api/v1/glossary?status=invalid_status", headers={"Authorization": f"Bearer {sup_tok}"})
     assert resp_inv.status_code == 422
 
 

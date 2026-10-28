@@ -155,8 +155,8 @@ def test_tb1_3_role_matrix(test_db):
         ("GET", "/api/v1/audit", {}, ["auditor", "admin"]),
         # Glossary review: supervisor, admin
         ("GET", "/api/v1/glossary", {}, ["supervisor", "admin"]),
-        # Models list: admin only
-        ("GET", "/api/v1/admin/models", {}, ["admin"]),
+        # Models list: admin, supervisor
+        ("GET", "/api/v1/admin/models", {}, ["admin", "supervisor"]),
     ]
 
     for method, path, req_kwargs, allowed in matrix:

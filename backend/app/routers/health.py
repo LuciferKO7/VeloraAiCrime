@@ -45,6 +45,19 @@ async def health_check(conn: Connection = Depends(get_connection)):
     except Exception:
         speech_status = "down"
 
+    # Real connection check with 1s timeout for local Ollama
+    ollama_live = "down"
+    if settings.OLLAMA_URL:
+        try:
+            async with httpx.AsyncClient(timeout=1.0) as client:
+                resp = await client.get(f"{settings.OLLAMA_URL}/api/version")
+                if resp.status_code == 200:
+                    ollama_live = "ok"
+        except Exception:
+            ollama_live = "down"
+    else:
+        ollama_live = "unconfigured"
+
     now_iso = datetime.now(UTC).isoformat()
     overall = "ok" if db_status == "ok" else "degraded"
 
@@ -53,9 +66,11 @@ async def health_check(conn: Connection = Depends(get_connection)):
         "db": db_status,
         "ml_service": ml_status,
         "speech_service": speech_status,
+        "ollama": ollama_live,
         "llm": {
             "gemini": "configured" if settings.GEMINI_API_KEY else "unconfigured",
             "ollama": "configured" if settings.OLLAMA_URL else "unconfigured",
+            "ollama_status": ollama_live,
         },
         "time": now_iso,
     }

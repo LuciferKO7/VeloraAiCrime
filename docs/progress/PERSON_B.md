@@ -16,5 +16,5 @@ Progress tracker for Person B per §12 of `VELORA — MASTER PROMPT v1.1`.
 - [x] B9 Privacy router proof and LLM parity (P0, T+9 -> T+10) — tests TB9.1–TB9.4 — result: PASS — commit: 24f1e92
 - [x] B10 Glossary, governed learning, eval runs, dashboard, parser curve (P0 routes + T3 first run; P1 T6; T+9 -> T+13.5) — tests TB10.1–TB10.8 — result: PASS — commit: 1a4e52e
 - [x] B11 Match, gallery, consensus (P1, T+11 -> T+12) — tests TB11.1–TB11.4 — result: TB11.2–TB11.4 PASS (TB11.1 live blocked pending live ML service) — commit: pending
-- [ ] B12 Registry sync, hardening, OpenAPI (P0, T+13 -> T+16) — tests TB12.1–TB12.4 — result: — commit:
+- [x] B12 Registry sync, hardening, OpenAPI (P0, T+13 -> T+16) — tests TB12.1–TB12.4 — result: PASS — commit: 461722c
 - [ ] B13 Gate scripts and final (P0, T+16 -> T+18) — tests: gate smoke, e2e_full — result: — commit:

@@ -56,7 +56,7 @@ def _validate_maps_to(attribute: str, value: str) -> None:
 def list_glossary(
     status: str | None = Query(None, description="Filter by status: pending, approved, rejected"),
     conn: Connection = Depends(get_connection),
-    current_user: dict = Depends(require_role("supervisor", "admin", "investigator", "artist")),
+    current_user: dict = Depends(require_role("supervisor", "admin")),
 ):
     """
     List glossary terms (§7, §12 Step B10).

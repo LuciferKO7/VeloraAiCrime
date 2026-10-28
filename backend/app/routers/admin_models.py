@@ -66,6 +66,21 @@ def list_models(
     return results
 
 
+@router.post("/models/{model_id}/activate", status_code=status.HTTP_200_OK)
+def activate_model(
+    model_id: str,
+    conn: Connection = Depends(get_connection),
+    current_user: dict = Depends(require_role("admin")),
+):
+    """
+    Exclusively activates a model for its role (§8.0, §12 Step B12).
+    Requires admin role. Deactivates other models for the same role and audits the action.
+    """
+    from backend.app.services.registry_sync import activate_model_exclusive
+
+    return activate_model_exclusive(conn, model_id, current_user)
+
+
 # ==============================================================================
 # Eval Runs Routes (§7, §12 Step B10)
 # ==============================================================================
