@@ -1172,3 +1172,529 @@ def get_image_file(
 
     return FileResponse(file_path, media_type="image/png")
 
+
+DISCLAIMER_V1 = "AI-generated investigative aid — not a photograph, not evidence of identity."
+
+
+class FeedbackCreate(BaseModel):
+    round_id: str | None = None
+    image_id: str | None = None
+    event_type: str = Field(..., pattern="^(pick|reject|more_like|less_like|edit_request|lock_feature|unlock_feature|confidence_set|undo)$")
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class LocksUpdate(BaseModel):
+    locked_features: list[str] = Field(default_factory=list)
+
+
+class SessionFinalize(BaseModel):
+    image_id: str
+    notes: str | None = None
+
+
+@router.post("/sessions/{sid}/feedback", status_code=201)
+def record_feedback(
+    sid: str,
+    body: FeedbackCreate,
+    request: Request,
+    session_access_info: dict = Depends(require_session_access("edit")),
+    conn: Connection = Depends(get_connection),
+):
+    session_dict = dict(session_access_info["session"])
+    user = session_access_info["user"]
+    purpose = session_access_info["purpose"]
+    case_id = session_dict["case_id"]
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+
+    if session_dict.get("status") == "completed":
+        raise AppError("VALIDATION_ERROR", "Cannot record feedback for a completed session", status_code=400)
+
+    # Validate image if provided
+    if body.image_id:
+        img_row = conn.execute(
+            text("SELECT id FROM images WHERE id = :iid AND session_id = :sid"),
+            {"iid": body.image_id, "sid": sid},
+        ).fetchone()
+        if not img_row:
+            raise AppError("NOT_FOUND", f"Image '{body.image_id}' not found in session", status_code=404)
+
+    # Validate round if provided
+    if body.round_id:
+        rnd_row = conn.execute(
+            text("SELECT id FROM rounds WHERE id = :rid AND session_id = :sid"),
+            {"rid": body.round_id, "sid": sid},
+        ).fetchone()
+        if not rnd_row:
+            raise AppError("NOT_FOUND", f"Round '{body.round_id}' not found in session", status_code=404)
+
+    event_id = str(uuid.uuid4())
+    now_iso = datetime.now(UTC).isoformat()
+
+    current_locked = []
+    if session_dict.get("locked_features_json"):
+        try:
+            current_locked = json.loads(session_dict["locked_features_json"])
+        except Exception:
+            current_locked = []
+
+    new_selected_img = session_dict.get("selected_image_id")
+    new_locked = list(current_locked)
+
+    if body.event_type == "pick" and body.image_id:
+        new_selected_img = body.image_id
+    elif body.event_type == "lock_feature":
+        feat = body.payload.get("feature") or body.payload.get("key")
+        if feat and feat not in new_locked:
+            new_locked.append(feat)
+    elif body.event_type == "unlock_feature":
+        feat = body.payload.get("feature") or body.payload.get("key")
+        if feat and feat in new_locked:
+            new_locked.remove(feat)
+
+    with atomic_mutation(conn):
+        conn.execute(
+            text(
+                """
+                INSERT INTO feedback_events (
+                    id, session_id, round_id, image_id, event_type, payload_json, created_by, created_at
+                ) VALUES (
+                    :id, :session_id, :round_id, :image_id, :event_type, :payload_json, :created_by, :created_at
+                )
+                """
+            ),
+            {
+                "id": event_id,
+                "session_id": sid,
+                "round_id": body.round_id,
+                "image_id": body.image_id,
+                "event_type": body.event_type,
+                "payload_json": json.dumps(body.payload),
+                "created_by": user["id"],
+                "created_at": now_iso,
+            },
+        )
+        conn.execute(
+            text(
+                """
+                UPDATE sessions
+                SET selected_image_id = :sel_img,
+                    locked_features_json = :lj,
+                    updated_at = :now
+                WHERE id = :sid
+                """
+            ),
+            {
+                "sel_img": new_selected_img,
+                "lj": json.dumps(new_locked),
+                "now": now_iso,
+                "sid": sid,
+            },
+        )
+        write_audit_entry(
+            conn,
+            action="feedback.create",
+            user_id=user["id"],
+            username=user["username"],
+            role=user["role"],
+            resource_type="feedback_event",
+            resource_id=event_id,
+            case_id=case_id,
+            purpose=purpose,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=201,
+            details={
+                "session_id": sid,
+                "event_type": body.event_type,
+                "image_id": body.image_id,
+                "round_id": body.round_id,
+            },
+        )
+
+    return {
+        "id": event_id,
+        "session_id": sid,
+        "round_id": body.round_id,
+        "image_id": body.image_id,
+        "event_type": body.event_type,
+        "payload": body.payload,
+        "created_by": user["id"],
+        "created_at": now_iso,
+    }
+
+
+@router.get("/sessions/{sid}/feedback")
+def list_session_feedback(
+    sid: str,
+    session_access_info: dict = Depends(require_session_access("view")),
+    conn: Connection = Depends(get_connection),
+):
+    rows = conn.execute(
+        text("SELECT * FROM feedback_events WHERE session_id = :sid ORDER BY created_at ASC"),
+        {"sid": sid},
+    ).mappings().fetchall()
+
+    results = []
+    for r in rows:
+        p = {}
+        if r.get("payload_json"):
+            try:
+                p = json.loads(r["payload_json"])
+            except Exception:
+                p = {}
+        results.append({
+            "id": r["id"],
+            "session_id": r["session_id"],
+            "round_id": r["round_id"],
+            "image_id": r["image_id"],
+            "event_type": r["event_type"],
+            "payload": p,
+            "created_by": r["created_by"],
+            "created_at": r["created_at"],
+        })
+    return results
+
+
+@router.put("/sessions/{sid}/locks")
+def update_session_locks(
+    sid: str,
+    body: LocksUpdate,
+    request: Request,
+    session_access_info: dict = Depends(require_session_access("edit")),
+    conn: Connection = Depends(get_connection),
+):
+    session_dict = dict(session_access_info["session"])
+    user = session_access_info["user"]
+    purpose = session_access_info["purpose"]
+    case_id = session_dict["case_id"]
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+
+    if session_dict.get("status") == "completed":
+        raise AppError("VALIDATION_ERROR", "Cannot update locks for a completed session", status_code=400)
+
+    now_iso = datetime.now(UTC).isoformat()
+    with atomic_mutation(conn):
+        conn.execute(
+            text("UPDATE sessions SET locked_features_json = :lj, updated_at = :now WHERE id = :sid"),
+            {"lj": json.dumps(body.locked_features), "now": now_iso, "sid": sid},
+        )
+        write_audit_entry(
+            conn,
+            action="attributes.update",
+            user_id=user["id"],
+            username=user["username"],
+            role=user["role"],
+            resource_type="session",
+            resource_id=sid,
+            case_id=case_id,
+            purpose=purpose,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=200,
+            details={"subaction": "locks.update", "locked_features": body.locked_features},
+        )
+
+    return {"session_id": sid, "locked_features": body.locked_features}
+
+
+@router.post("/sessions/{sid}/undo")
+def undo_session_round(
+    sid: str,
+    request: Request,
+    session_access_info: dict = Depends(require_session_access("edit")),
+    conn: Connection = Depends(get_connection),
+):
+    session_dict = dict(session_access_info["session"])
+    user = session_access_info["user"]
+    purpose = session_access_info["purpose"]
+    case_id = session_dict["case_id"]
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+
+    if session_dict.get("status") == "completed":
+        raise AppError("VALIDATION_ERROR", "Cannot undo in a completed session", status_code=400)
+
+    latest_round = conn.execute(
+        text("SELECT id, round_no, kind FROM rounds WHERE session_id = :sid ORDER BY round_no DESC LIMIT 1"),
+        {"sid": sid},
+    ).mappings().fetchone()
+
+    if not latest_round:
+        raise AppError("VALIDATION_ERROR", "No rounds to undo in this session", status_code=400)
+
+    undone_rid = latest_round["id"]
+    undone_round_no = latest_round["round_no"]
+    new_round_no = max(0, undone_round_no - 1)
+    now_iso = datetime.now(UTC).isoformat()
+    undo_event_id = str(uuid.uuid4())
+
+    with atomic_mutation(conn):
+        conn.execute(
+            text(
+                """
+                DELETE FROM feedback_events
+                WHERE round_id = :rid OR image_id IN (SELECT id FROM images WHERE round_id = :rid)
+                """
+            ),
+            {"rid": undone_rid},
+        )
+        conn.execute(text("UPDATE images SET parent_image_id = NULL WHERE round_id = :rid"), {"rid": undone_rid})
+        conn.execute(text("DELETE FROM images WHERE round_id = :rid"), {"rid": undone_rid})
+        conn.execute(text("DELETE FROM rounds WHERE id = :rid"), {"rid": undone_rid})
+
+        selected_img = session_dict.get("selected_image_id")
+        if selected_img:
+            still_exists = conn.execute(text("SELECT id FROM images WHERE id = :iid"), {"iid": selected_img}).fetchone()
+            if not still_exists:
+                selected_img = None
+
+        conn.execute(
+            text(
+                """
+                UPDATE sessions
+                SET current_round = :rnd,
+                    selected_image_id = :sel_img,
+                    updated_at = :now
+                WHERE id = :sid
+                """
+            ),
+            {"rnd": new_round_no, "sel_img": selected_img, "now": now_iso, "sid": sid},
+        )
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO feedback_events (
+                    id, session_id, round_id, image_id, event_type, payload_json, created_by, created_at
+                ) VALUES (
+                    :id, :session_id, NULL, NULL, 'undo', :payload_json, :created_by, :created_at
+                )
+                """
+            ),
+            {
+                "id": undo_event_id,
+                "session_id": sid,
+                "payload_json": json.dumps({"undone_round_id": undone_rid, "undone_round_no": undone_round_no}),
+                "created_by": user["id"],
+                "created_at": now_iso,
+            },
+        )
+
+        write_audit_entry(
+            conn,
+            action="feedback.create",
+            user_id=user["id"],
+            username=user["username"],
+            role=user["role"],
+            resource_type="feedback_event",
+            resource_id=undo_event_id,
+            case_id=case_id,
+            purpose=purpose,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=200,
+            details={"event_type": "undo", "undone_round_id": undone_rid, "undone_round_no": undone_round_no, "new_round_no": new_round_no},
+        )
+
+    updated_session = conn.execute(text("SELECT * FROM sessions WHERE id = :sid"), {"sid": sid}).mappings().fetchone()
+    return assemble_session_state(conn, dict(updated_session))
+
+
+@router.post("/sessions/{sid}/finalize")
+def finalize_session(
+    sid: str,
+    body: SessionFinalize,
+    request: Request,
+    session_access_info: dict = Depends(require_session_access("edit")),
+    conn: Connection = Depends(get_connection),
+):
+    session_dict = dict(session_access_info["session"])
+    user = session_access_info["user"]
+    purpose = session_access_info["purpose"]
+    case_id = session_dict["case_id"]
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+
+    if session_dict.get("status") == "completed":
+        raise AppError("VALIDATION_ERROR", "Session is already completed", status_code=400)
+
+    img_row = conn.execute(
+        text("SELECT * FROM images WHERE id = :iid AND session_id = :sid"),
+        {"iid": body.image_id, "sid": sid},
+    ).mappings().fetchone()
+    if not img_row:
+        raise AppError("NOT_FOUND", f"Image '{body.image_id}' not found in session", status_code=404)
+
+    max_round = conn.execute(
+        text("SELECT MAX(round_no) FROM rounds WHERE session_id = :sid"),
+        {"sid": sid},
+    ).scalar()
+    new_round_no = (max_round or 0) + 1
+    round_id = str(uuid.uuid4())
+    now_iso = datetime.now(UTC).isoformat()
+
+    with atomic_mutation(conn):
+        conn.execute(
+            text(
+                """
+                INSERT INTO rounds (
+                    id, session_id, round_no, kind, params_json, attribute_snapshot_id,
+                    status, created_by, created_at, finished_at
+                ) VALUES (
+                    :id, :session_id, :round_no, 'finalize', :params_json, :snapshot_id,
+                    'done', :created_by, :created_at, :finished_at
+                )
+                """
+            ),
+            {
+                "id": round_id,
+                "session_id": sid,
+                "round_no": new_round_no,
+                "params_json": json.dumps({"final_image_id": body.image_id, "notes": body.notes}),
+                "snapshot_id": session_dict.get("current_snapshot_id"),
+                "created_by": user["id"],
+                "created_at": now_iso,
+                "finished_at": now_iso,
+            },
+        )
+        conn.execute(text("UPDATE images SET is_final = 1 WHERE id = :iid"), {"iid": body.image_id})
+        conn.execute(
+            text(
+                """
+                UPDATE sessions
+                SET status = 'completed',
+                    selected_image_id = :iid,
+                    current_round = :rnd,
+                    updated_at = :now
+                WHERE id = :sid
+                """
+            ),
+            {"iid": body.image_id, "rnd": new_round_no, "now": now_iso, "sid": sid},
+        )
+        write_audit_entry(
+            conn,
+            action="session.finalize",
+            user_id=user["id"],
+            username=user["username"],
+            role=user["role"],
+            resource_type="session",
+            resource_id=sid,
+            case_id=case_id,
+            purpose=purpose,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=200,
+            details={"final_image_id": body.image_id, "notes": body.notes, "round_no": new_round_no},
+        )
+
+    return {
+        "session_id": sid,
+        "status": "completed",
+        "final_image_id": body.image_id,
+        "round_no": new_round_no,
+        "disclaimer": DISCLAIMER_V1,
+        "notes": body.notes,
+        "finalized_at": now_iso,
+    }
+
+
+@router.get("/sessions/{sid}/next-question")
+def get_next_question(
+    sid: str,
+    session_access_info: dict = Depends(require_session_access("view")),
+    conn: Connection = Depends(get_connection),
+):
+    session_dict = dict(session_access_info["session"])
+    case_id = session_dict["case_id"]
+
+    from backend.app.services.sessions import SALIENT_KEYS
+    from backend.app.services.statement_pipeline import generate_next_question
+
+    snap_id = session_dict.get("current_snapshot_id")
+    current_attrs: dict[str, Any] = {"schema_version": "1.0", "attributes": {}, "unmapped_notes": []}
+    if snap_id:
+        snap_row = conn.execute(
+            text("SELECT attributes_json FROM attribute_snapshots WHERE id = :snap_id"),
+            {"snap_id": snap_id},
+        ).fetchone()
+        if snap_row and snap_row[0]:
+            try:
+                current_attrs = json.loads(snap_row[0])
+            except Exception:
+                pass
+
+    attr_map = current_attrs.get("attributes") or {}
+    unspecified_keys = []
+    target_key = None
+    for k in SALIENT_KEYS:
+        val = attr_map.get(k)
+        if not val or val.get("value") is None:
+            unspecified_keys.append(k)
+            if target_key is None:
+                target_key = k
+
+    question_text = generate_next_question(current_attrs, case_id=case_id, session_id=sid)
+
+    return {
+        "session_id": sid,
+        "next_question": question_text,
+        "target_key": target_key or "other",
+        "unspecified_keys": unspecified_keys,
+    }
+
+
+@router.get("/images/{image_id}")
+def get_image_metadata(
+    image_id: str,
+    conn: Connection = Depends(get_connection),
+):
+    img_row = conn.execute(
+        text("SELECT * FROM images WHERE id = :iid"),
+        {"iid": image_id},
+    ).mappings().fetchone()
+    if not img_row:
+        raise AppError("NOT_FOUND", f"Image '{image_id}' not found", status_code=404)
+
+    img = dict(img_row)
+    img_id = img["id"]
+    variant_axes = {}
+    if img.get("variant_axes_json"):
+        try:
+            variant_axes = json.loads(img["variant_axes_json"])
+        except Exception:
+            pass
+
+    model_versions = {}
+    if img.get("model_versions_json"):
+        try:
+            model_versions = json.loads(img["model_versions_json"])
+        except Exception:
+            pass
+
+    return {
+        "id": img_id,
+        "session_id": img["session_id"],
+        "round_id": img["round_id"],
+        "parent_image_id": img.get("parent_image_id"),
+        "variant_index": img["variant_index"],
+        "kind": img["kind"],
+        "width": img["width"],
+        "height": img["height"],
+        "seed": img.get("seed"),
+        "variant_axes": variant_axes,
+        "attr_adherence": img.get("attr_adherence"),
+        "identity_similarity": img.get("identity_similarity"),
+        "speculative": bool(img.get("speculative")),
+        "is_final": bool(img.get("is_final")),
+        "has_sketch": bool(img.get("sketch_path")),
+        "urls": {
+            "photo": f"/api/v1/images/{img_id}/file?style=photo",
+            "pencil": f"/api/v1/images/{img_id}/file?style=pencil",
+            "thumb": f"/api/v1/images/{img_id}/file?style=photo&size=thumb",
+        },
+        "model_versions": model_versions,
+        "created_at": img["created_at"],
+    }
+
