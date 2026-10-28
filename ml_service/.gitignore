@@ -1,6 +1,9 @@
 .venv/
-models/
-reports/
-storage/
+/models/
+/reports/
+/storage/
+!app/models/
+!app/models/**
 __pycache__/
 *.pyc
+*.py[cod]
