@@ -98,6 +98,11 @@ _llm_cache: dict[str, tuple[dict[str, Any], str, int, int, float]] = {}
 _cache_lock = threading.Lock()
 
 
+def clear_cache() -> None:
+    with _cache_lock:
+        _llm_cache.clear()
+
+
 def get_cache_key(task: str, model: str, system: str, user: str) -> str:
     raw = f"{task}:{model}:{system}:{user}".encode()
     return hashlib.sha256(raw).hexdigest()
@@ -173,7 +178,19 @@ def record_llm_call(
         )
 
 
-def _resolve_data_mode(case_id: str | None, task: str) -> str:
+def _resolve_data_mode(case_id: str | None, task: str, session_id: str | None = None) -> str:
+    if case_id is None and session_id is not None:
+        try:
+            with get_engine().connect() as conn:
+                row = conn.execute(
+                    text("SELECT case_id FROM sessions WHERE id = :sid"),
+                    {"sid": session_id},
+                ).fetchone()
+                if row and row[0]:
+                    case_id = str(row[0])
+        except Exception:
+            pass
+
     if case_id is None:
         if task not in NO_CASE_ALLOWED_TASKS:
             raise AppError(
@@ -437,7 +454,7 @@ def complete(
             status_code=422,
         )
 
-    data_mode = _resolve_data_mode(case_id, task)
+    data_mode = _resolve_data_mode(case_id, task, session_id=session_id)
 
     # 1. Real Case Isolation (§0 R11.4, §8.1)
     if data_mode == "real":
