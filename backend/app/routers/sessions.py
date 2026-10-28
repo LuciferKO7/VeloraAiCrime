@@ -1,10 +1,11 @@
+import base64
 import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -235,16 +236,89 @@ def complete_session(
 
 
 class StatementCreate(BaseModel):
-    text: str
+    text: str | None = None
     speaker: str = "witness"
     input_mode: str = "text"
     audio_sha256: str | None = None
+    audio_base64: str | None = None
     language: str | None = None
 
 
 class AttributesUpdate(BaseModel):
     attributes: dict[str, Any]
     unmapped_notes: list[str] | None = None
+
+
+@router.post("/sessions/{sid}/transcribe")
+async def transcribe_session_audio(
+    sid: str,
+    request: Request,
+    language_hint: str | None = Query(None),
+    session_access_info: dict = Depends(require_session_access("edit")),
+    conn: Connection = Depends(get_connection),
+):
+    session_dict = session_access_info["session"]
+    user = session_access_info["user"]
+    purpose = session_access_info["purpose"]
+    case_id = session_dict["case_id"]
+
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            raw_b64 = body.get("audio_base64") or body.get("audio") or ""
+            audio_bytes = base64.b64decode(raw_b64)
+            if not language_hint:
+                language_hint = body.get("language_hint") or body.get("language")
+        except Exception as exc:
+            raise AppError("VALIDATION_ERROR", "Invalid JSON or audio_base64 payload", status_code=400) from exc
+    else:
+        audio_bytes = await request.body()
+
+    if not audio_bytes:
+        raise AppError("VALIDATION_ERROR", "Audio payload is empty", status_code=400)
+
+    from backend.app.services.speech_proxy import SpeechProxyClient, save_audio_bytes
+    rel_path, audio_sha = save_audio_bytes(audio_bytes, suffix=".wav")
+
+    proxy = SpeechProxyClient()
+    transcription = proxy.transcribe(
+        audio_bytes=audio_bytes,
+        filename="audio.wav",
+        language_hint=language_hint,
+    )
+
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+
+    with atomic_mutation(conn):
+        write_audit_entry(
+            conn,
+            action="speech.transcribe",
+            user_id=user["id"],
+            username=user["username"],
+            role=user["role"],
+            resource_type="session",
+            resource_id=sid,
+            case_id=case_id,
+            purpose=purpose,
+            ip=client_ip,
+            user_agent=user_agent,
+            status_code=200,
+            details={
+                "audio_sha256": audio_sha,
+                "detected_language": transcription["language"],
+                "audio_path": rel_path,
+                "duration_s": transcription.get("duration_s"),
+            },
+        )
+
+    return {
+        "text": transcription["text"],
+        "language": transcription["language"],
+        "audio_sha256": audio_sha,
+        "duration_s": transcription.get("duration_s"),
+    }
 
 
 @router.post("/sessions/{sid}/statements", status_code=201)
@@ -254,6 +328,7 @@ def submit_statement(
     session_access_info: dict = Depends(require_session_access("edit")),
     conn: Connection = Depends(get_connection),
 ):
+    from backend.app.services.speech_proxy import SpeechProxyClient, save_audio_bytes
     from backend.app.services.statement_pipeline import (
         detect_language,
         generate_next_question,
@@ -274,6 +349,49 @@ def submit_statement(
     sid = session_dict["id"]
     case_id = session_dict["case_id"]
     wid = session_dict["witness_id"]
+
+    # Handle voice mode with audio_base64
+    if body.input_mode == "voice" and not body.text:
+        if not body.audio_base64:
+            raise AppError("VALIDATION_ERROR", "Voice statement requires audio_base64 or text", status_code=422)
+        try:
+            raw_audio = base64.b64decode(body.audio_base64)
+        except Exception as exc:
+            raise AppError("VALIDATION_ERROR", "Invalid audio_base64 encoding", status_code=422) from exc
+        rel_path, audio_sha = save_audio_bytes(raw_audio, suffix=".wav")
+        proxy = SpeechProxyClient()
+        trans = proxy.transcribe(raw_audio, language_hint=body.language)
+        body.text = trans["text"]
+        body.audio_sha256 = audio_sha
+        if not body.language:
+            body.language = trans["language"]
+
+        # Audit voice transcription
+        client_ip = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "")
+        with atomic_mutation(conn):
+            write_audit_entry(
+                conn,
+                action="speech.transcribe",
+                user_id=user["id"],
+                username=user["username"],
+                role=user["role"],
+                resource_type="session",
+                resource_id=sid,
+                case_id=case_id,
+                purpose=purpose,
+                ip=client_ip,
+                user_agent=user_agent,
+                status_code=200,
+                details={
+                    "audio_sha256": audio_sha,
+                    "detected_language": trans["language"],
+                    "audio_path": rel_path,
+                },
+            )
+
+    if not body.text:
+        raise AppError("VALIDATION_ERROR", "Statement text is required", status_code=422)
 
     case_row = conn.execute(
         text("SELECT * FROM cases WHERE id = :cid"),

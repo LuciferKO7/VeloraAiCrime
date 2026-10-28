@@ -4,11 +4,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-import httpx
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-from backend.app.core.config import settings
 from backend.app.llm.guards import validate_and_guard_parse_delta
 from backend.app.llm.router import complete
 from backend.app.services.sessions import SALIENT_KEYS
@@ -95,19 +93,13 @@ def translate_text(
     if src_lang == "en":
         return original_text, "none"
 
-    speech_url = getattr(settings, "SPEECH_SERVICE_URL", "http://localhost:8002")
     try:
-        with httpx.Client(timeout=5.0) as client:
-            resp = client.post(
-                f"{speech_url}/sp/v1/translate",
-                json={"text": original_text, "source_lang": src_lang, "target_lang": "en"},
-                headers={"X-Service-Key": settings.SERVICE_KEY},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                translated = data.get("translated_text") or data.get("text")
-                if translated:
-                    return translated.strip(), "indictrans2"
+        from backend.app.services.speech_proxy import SpeechProxyClient
+        client = SpeechProxyClient(timeout_s=5.0)
+        res = client.translate(original_text, src_lang, target_lang="en")
+        translated = res.get("translated_text")
+        if translated:
+            return translated.strip(), "indictrans2"
     except Exception as exc:
         logger.warning("Speech service translation unavailable, falling back to LLM router: %s", exc)
 
