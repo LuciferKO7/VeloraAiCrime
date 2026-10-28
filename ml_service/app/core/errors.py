@@ -6,6 +6,7 @@ Adheres strictly to MASTER_PROMPT.md §6.3 error format:
 
 from typing import Any, Dict, Optional
 from fastapi import HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -88,7 +89,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
         content=format_error_response(
             code="VALIDATION_ERROR",
             message="Request validation failed",
-            details={"errors": exc.errors()},
+            details={"errors": jsonable_encoder(exc.errors())},
         ),
     )
 

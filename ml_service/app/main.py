@@ -21,7 +21,7 @@ from ml_service.app.core.errors import (
     validation_error_handler,
 )
 from ml_service.app.models.manager import model_manager
-from ml_service.app.routers import health
+from ml_service.app.routers import generate, health
 
 # Configure structured logging per MASTER_PROMPT.md §0 R14 (no raw print)
 logging.basicConfig(
@@ -69,8 +69,10 @@ app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.add_exception_handler(HTTPException, generic_http_error_handler)
 app.add_exception_handler(StarletteHTTPException, generic_http_error_handler)
 
+
 # Include API routers under /ml/v1
 app.include_router(health.router, prefix="/ml/v1")
+app.include_router(generate.router, prefix="/ml/v1")
 
 
 if __name__ == "__main__":
