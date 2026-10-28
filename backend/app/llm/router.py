@@ -394,7 +394,7 @@ def _execute_provider_call_with_repair(
             )
             raise ValueError(f"Schema validation failed after repair: {rep_val_err}")
     except Exception as exc:
-        if "Repair failed validation" not in str(exc):
+        if "Schema validation failed after repair" not in str(exc):
             record_llm_call(
                 call_id=repair_call_id,
                 case_id=case_id,
