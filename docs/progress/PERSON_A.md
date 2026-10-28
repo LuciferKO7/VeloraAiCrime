@@ -4,7 +4,7 @@ Progress tracker for Person A per §11 of `VELORA — MASTER PROMPT v1.1`.
 
 ---
 
-- [ ] A0 Machine setup, model download, hour-1 benchmark (P0, T+0 -> T+1.5) — tests TA0.1–TA0.5 — result: — commit:
+- [x] A0 Machine setup, model download, hour-1 benchmark (P0, T+0 -> T+1.5) — tests TA0.1–TA0.5 — result: TA0.1 PASS, TA0.2 PASS (2.836s), TA0.3 PASS (619.8MB), TA0.4 APPROVED (V3.1 visual quality), TA0.5 verified — commit: [A] feat(ml): complete A0 setup, model benchmark, and gate verification
 - [ ] A1 Service skeleton (P0, T+1.5 -> T+2.5) — tests TA1.1–TA1.5 — result: — commit:
 - [ ] A2 Generator /generate (P0, T+2.5 -> T+4.5) — tests TA2.1–TA2.9 — result: — commit:
 - [ ] A3 Embedder and verifier (P0, T+4.5 -> T+5.5) — tests TA3.1–TA3.4 — result: — commit:
