@@ -707,6 +707,8 @@ class RoundEditRequest(BaseModel):
     parent_image_id: str
     instruction_text: str
     kind: str = Field(default="edit", pattern="^(edit|transform)$")
+    region: str | None = None
+    mask_b64: str | None = None
 
 
 def format_round_dict(round_row: dict[str, Any], images_rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1154,6 +1156,8 @@ def edit_round(
         parent_image_id=body.parent_image_id,
         instruction_text=body.instruction_text,
         kind=body.kind,
+        region=body.region,
+        mask_b64=body.mask_b64,
     )
 
     with atomic_mutation(conn):

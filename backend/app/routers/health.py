@@ -25,12 +25,16 @@ async def health_check(conn: Connection = Depends(get_connection)):
     except Exception:
         db_status = "error"
 
-    # Real connection check with 2s timeout for ml_service
+    # Real connection check with 2s timeout for ml_service (/ml/v1/health with X-Service-Key)
     ml_status = "down"
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.get(f"{settings.ML_SERVICE_URL}/health")
-            if resp.status_code in (200, 401):
+            headers = {}
+            if getattr(settings, "SERVICE_KEY", ""):
+                headers["X-Service-Key"] = settings.SERVICE_KEY
+            base_ml = settings.ML_SERVICE_URL.rstrip("/")
+            resp = await client.get(f"{base_ml}/ml/v1/health", headers=headers)
+            if resp.status_code == 200:
                 ml_status = "ok"
     except Exception:
         ml_status = "down"
