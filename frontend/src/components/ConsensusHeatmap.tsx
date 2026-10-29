@@ -10,6 +10,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { DEMO_POSSIBLE_LEADS } from '../store/demoData';
 
 export interface WitnessSessionSummary {
   id: string;
@@ -349,32 +350,30 @@ export const ConsensusHeatmap: React.FC = () => {
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { id: 'lead-01', similarity: 82, note: 'Matched on brow arch & jaw contour' },
-              { id: 'lead-02', similarity: 74, note: 'Matched on deep-set eye shape' },
-              { id: 'lead-03', similarity: 69, note: 'Matched on age band and ear alignment' },
-            ].map((lead, idx) => (
+            {DEMO_POSSIBLE_LEADS.map((lead, idx) => (
               <div
                 key={lead.id}
                 className="p-4 rounded-xl bg-[#14161a] border border-[rgba(255,255,255,0.08)] space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white">Lead #{idx + 1}</span>
+                  <span className="text-xs font-bold text-white">Lead #{idx + 1} ({lead.id})</span>
                   <span className="text-xs font-mono font-bold text-[#5ad1ff]">
-                    {lead.similarity}% Similarity
+                    {lead.similarityPct}% Similarity
                   </span>
                 </div>
                 <div className="w-full bg-[#090a0c] rounded-full h-2 overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-[#7c8cff] to-[#5ad1ff] h-full rounded-full"
-                    style={{ width: `${lead.similarity}%` }}
+                    style={{ width: `${lead.similarityPct}%` }}
                   />
                 </div>
-                <p className="text-[11px] text-[#A9A9AA]">{lead.note}</p>
+                <p className="text-[11px] text-[#A9A9AA]">
+                  {lead.basis}
+                </p>
                 <div className="pt-2 border-t border-[rgba(255,255,255,0.06)] flex items-center justify-between text-[10px]">
-                  <span className="text-[#95979E]">Status: Unverified</span>
+                  <span className="text-[#95979E]">{lead.disclaimer}</span>
                   <span className="text-[#7c8cff] cursor-pointer hover:underline">
-                    View Vector
+                    Dist: {lead.vectorDistance}
                   </span>
                 </div>
               </div>

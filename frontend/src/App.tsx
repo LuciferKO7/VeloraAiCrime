@@ -13,6 +13,8 @@ import { WitnessMode } from './components/WitnessMode';
 import { AlertTriangle } from 'lucide-react';
 import type { UserRole } from './api/types';
 
+import { DEMO_CASE_METADATA } from './store/demoData';
+
 export const DISCLAIMER_V1 = MANDATORY_DISCLAIMER;
 
 interface AppProps {
@@ -39,18 +41,10 @@ export function App({ initialView = 'landing' }: AppProps): React.ReactElement {
   const [isWitnessModeActive, setIsWitnessModeActive] = useState(initialView === 'witness');
   const [studioInitialMode, setStudioInitialMode] = useState<'composite' | 'scene'>('composite');
   const [ambientTier, setAmbientTier] = useState<'high' | 'mid' | 'low'>('high');
+  const [isDemoMode, setIsDemoMode] = useState(true);
 
   // Active investigation case and session
-  const [activeCase, setActiveCase] = useState<CaseItem>({
-    id: 'case-demo-001',
-    case_number: 'DEMO-001',
-    title: 'Commercial District Armed Robbery',
-    station: 'Central Division Precinct 4',
-    status: 'active',
-    data_mode: 'demo',
-    default_appearance_group: 'unspecified',
-    updated_at: new Date().toISOString(),
-  });
+  const [activeCase, setActiveCase] = useState<CaseItem>(DEMO_CASE_METADATA);
   const [activeSessionId, setActiveSessionId] = useState('SES-2026-0814');
 
   // Ambient mode ('demo' | 'local' | 'alert')
@@ -132,6 +126,8 @@ export function App({ initialView = 'landing' }: AppProps): React.ReactElement {
         onSelectShell={(shell) => setActiveShell(shell)}
         currentUser={currentUser}
         integrityValid={integrityValid}
+        isDemoMode={isDemoMode}
+        onToggleDemoMode={() => setIsDemoMode((prev) => !prev)}
         onOpenLoginSheet={() => setIsLoginSheetOpen(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />

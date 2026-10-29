@@ -25,7 +25,10 @@ export interface CaseItem {
   updated_at: string;
 }
 
+import { DEMO_CASE_METADATA } from '../store/demoData';
+
 const DEV_FIXTURE_CASES: CaseItem[] = [
+  DEMO_CASE_METADATA,
   {
     id: 'case-demo-001',
     case_number: '[DEV FIXTURE] DEMO-001',

@@ -122,6 +122,41 @@ export const LoginSheet: React.FC<LoginSheetProps> = ({
           </div>
         </div>
 
+        {/* 1-Click Hackathon Demo Mode Button */}
+        <div className="mb-5 p-3.5 rounded-2xl bg-gradient-to-r from-[#7c8cff]/15 to-[#5ad1ff]/15 border border-[#5ad1ff]/30 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase text-[#5ad1ff] font-bold tracking-wider">
+              Emergency Hackathon Demo Access
+            </span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-[#5ad1ff]/20 text-[#5ad1ff]">
+              CLIENT-SIDE SIMULATION
+            </span>
+          </div>
+          <p className="text-[11px] text-[#A9A9AA] leading-snug">
+            Immediate access using the verified dataset for <strong className="text-white">Case DEMO-2026-041</strong> (Vehicle incident — reconstructed witness account).
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              onLoginSuccess({
+                username: 'Investigator (Demo)',
+                role: 'investigator',
+              });
+              onClose();
+            }}
+            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#7c8cff] to-[#5ad1ff] hover:opacity-95 text-[#090a0c] text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-[0.98]"
+          >
+            <span>Enter Hackathon Demo Mode</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 my-4 text-[10px] text-[#95979E] font-mono">
+          <div className="flex-1 border-t border-[rgba(255,255,255,0.08)]" />
+          <span>OR AUTHENTICATE VIA BACKEND (:8000)</span>
+          <div className="flex-1 border-t border-[rgba(255,255,255,0.08)]" />
+        </div>
+
         {errorMsg && (
           <div className="mb-4 p-3 rounded-xl bg-[#ff6b6b]/15 border border-[#ff6b6b]/40 text-[#ff6b6b] text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />

@@ -20,6 +20,8 @@ interface NavigationHeaderProps {
   };
   healthStatus?: 'healthy' | 'degraded' | 'unreachable';
   integrityValid?: boolean | null;
+  isDemoMode?: boolean;
+  onToggleDemoMode?: () => void;
   onOpenLoginSheet?: () => void;
   onOpenCommandPalette?: () => void;
 }
@@ -29,13 +31,15 @@ interface NavigationHeaderProps {
  *
  * Global navigation across the Four Shells per FRONTEND_DESIGN.md §2.
  * Shells: Landing (/) · Command Center (/cases) · Studio (/studio) · Trust Center (/trust)
- * Role-aware and displays live system health / integrity status.
+ * Role-aware and displays live system health / integrity status and explicit Demo Mode switch.
  */
 export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
   activeShell,
   onSelectShell,
   currentUser = { username: 'investigator_1', role: 'investigator' },
   integrityValid = null,
+  isDemoMode = true,
+  onToggleDemoMode,
   onOpenLoginSheet,
   onOpenCommandPalette,
 }) => {
@@ -113,6 +117,20 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
 
       {/* Right User & System Status Strip */}
       <div className="flex items-center gap-3 text-xs">
+        {/* Explicit Demo Mode Indicator & Toggle */}
+        <button
+          onClick={onToggleDemoMode}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono border transition-all ${
+            isDemoMode
+              ? 'bg-[#5ad1ff]/15 text-[#5ad1ff] border-[#5ad1ff]/40 shadow-[0_0_12px_rgba(90,209,255,0.25)]'
+              : 'bg-[#14161a] text-[#A9A9AA] border-[rgba(255,255,255,0.08)]'
+          }`}
+          title="Toggle Hackathon Offline Demo Mode"
+        >
+          <span className={`w-2 h-2 rounded-full ${isDemoMode ? 'bg-[#5ad1ff]' : 'bg-[#95979E]'}`} />
+          <span>{isDemoMode ? 'DEMO MODE: ACTIVE' : 'LIVE API MODE'}</span>
+        </button>
+
         {/* Integrity status dot */}
         <div
           title={

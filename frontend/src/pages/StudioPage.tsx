@@ -18,6 +18,11 @@ import { DynamicIsland } from '../components/DynamicIsland';
 import { Vela, type VelaState } from '../components/Vela';
 import { ExportSheet } from '../components/ExportSheet';
 import { SceneEditor } from '../components/SceneEditor';
+import { ForensicGraphiteSketch } from '../components/ForensicGraphiteSketch';
+import {
+  DEMO_FACIAL_ATTRIBUTES,
+  DEMO_AI_ASSUMED_UNSTATED,
+} from '../store/demoData';
 import type { CaseItem } from './CommandCenterPage';
 import { apiClient } from '../api/client';
 
@@ -68,31 +73,22 @@ export const StudioPage: React.FC<StudioPageProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDevFixtureMode, setIsDevFixtureMode] = useState(false);
 
-  // Attribute inspector state
+  // Attribute inspector state (DEMO-2026-041)
   const [attributes, setAttributes] = useState<
     Array<{ region: string; key: string; value: string; confidence: 'sure' | 'somewhat' | 'unsure'; locked: boolean }>
-  >([
-    { region: 'face_shape', key: 'Jawline', value: 'sharp angular', confidence: 'sure', locked: false },
-    { region: 'eyebrows', key: 'Eyebrows', value: 'thick arched', confidence: 'sure', locked: true },
-    { region: 'age', key: 'Age Band', value: '28-32 years', confidence: 'somewhat', locked: false },
-    { region: 'eyes', key: 'Eye Shape', value: 'almond deep-set', confidence: 'somewhat', locked: false },
-  ]);
+  >(DEMO_FACIAL_ATTRIBUTES);
 
   // AI Assumed panel items (R11 invariant: never guessed, varied across variants)
-  const [aiAssumed, setAiAssumed] = useState<Array<{ key: string; note: string }>>([
-    { key: 'Eye Color', note: 'Not stated — varied across variants (dark brown / black)' },
-    { key: 'Skin Tone', note: 'Not stated — varied across regional baseline range' },
-    { key: 'Hair Texture', note: 'Not stated — sampled across wavy / straight' },
-  ]);
+  const [aiAssumed, setAiAssumed] = useState(DEMO_AI_ASSUMED_UNSTATED);
 
   // Phase 2 Recognize: 6 variants state
   const [cards, setCards] = useState([
-    { id: 'v1', status: 'ready', picked: false, score: 0.88, axes: 'sharp jaw · thick brows' },
-    { id: 'v2', status: 'ready', picked: true, score: 0.94, axes: 'angular jaw · arched brows · 30y' },
-    { id: 'v3', status: 'ready', picked: false, score: 0.76, axes: 'softer jaw · medium brows' },
-    { id: 'v4', status: 'ready', picked: false, score: 0.81, axes: 'prominent chin · deep eyes' },
-    { id: 'v5', status: 'ready', picked: false, score: 0.72, axes: 'square jaw · thick hair' },
-    { id: 'v6', status: 'ready', picked: false, score: 0.85, axes: 'narrow jaw · arched brows' },
+    { id: 'v1', status: 'ready', picked: false, score: 0.88, axes: 'frontal · sharp angular jaw · clean', view: 'frontal' as const, jawStyle: 'sharp' as const, hasCap: false, hasBeard: false, isMature: false },
+    { id: 'v2', status: 'ready', picked: true, score: 0.94, axes: 'profile lateral · defined brow ridge', view: 'profile' as const, jawStyle: 'sharp' as const, hasCap: false, hasBeard: false, isMature: false },
+    { id: 'v3', status: 'ready', picked: false, score: 0.78, axes: 'frontal · rounded jaw (W-003 dispute)', view: 'frontal' as const, jawStyle: 'rounded' as const, hasCap: false, hasBeard: false, isMature: false },
+    { id: 'v4', status: 'ready', picked: false, score: 0.82, axes: 'frontal · dark low-profile cap (W-003)', view: 'frontal' as const, jawStyle: 'sharp' as const, hasCap: true, hasBeard: false, isMature: false },
+    { id: 'v5', status: 'ready', picked: false, score: 0.85, axes: 'profile · capped / shadowed forehead', view: 'profile' as const, jawStyle: 'sharp' as const, hasCap: true, hasBeard: false, isMature: false },
+    { id: 'v6', status: 'ready', picked: false, score: 0.79, axes: 'frontal · speculative mature (+5y)', view: 'frontal' as const, jawStyle: 'sharp' as const, hasCap: false, hasBeard: false, isMature: true },
   ]);
 
   // Phase 3 Refine state
@@ -490,18 +486,17 @@ export const StudioPage: React.FC<StudioPageProps> = ({
                         : 'border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.2)]'
                     }`}
                   >
-                    {/* Pencil stroke reveal visual container */}
-                    <div className="h-32 sm:h-36 rounded-lg bg-[#090a0c] flex flex-col items-center justify-center p-2 relative overflow-hidden pencil-reveal">
-                      {/* Stylized geometric sketch illustration */}
-                      <svg viewBox="0 0 100 120" className="w-20 h-24 stroke-[rgba(255,255,255,0.7)] fill-none stroke-width-2">
-                        <ellipse cx="50" cy="55" rx="30" ry="40" />
-                        <path d="M 35,45 Q 50,42 65,45" />
-                        <ellipse cx="38" cy="52" rx="5" ry="3" />
-                        <ellipse cx="62" cy="52" rx="5" ry="3" />
-                        <line x1="50" y1="52" x2="50" y2="70" />
-                        <path d="M 40,80 Q 50,88 60,80" />
-                        <path d="M 28,95 Q 50,105 72,95" />
-                      </svg>
+                    {/* Forensic Graphite Drawing visual container */}
+                    <div className="h-44 sm:h-48 rounded-lg bg-[#f5f0e6] relative overflow-hidden pencil-reveal">
+                      <ForensicGraphiteSketch
+                        view={card.view}
+                        jawStyle={card.jawStyle}
+                        hasCap={card.hasCap}
+                        hasBeard={card.hasBeard}
+                        isMature={card.isMature}
+                        showMetadata={false}
+                        className="h-full border-none shadow-none"
+                      />
 
                       {/* Permanent Statutory Banner Ribbon (TCD4 invariant) */}
                       <div className="absolute bottom-0 inset-x-0 py-0.5 bg-[#5A250A]/90 text-[8px] font-mono text-[#FF8964] text-center">
@@ -530,25 +525,23 @@ export const StudioPage: React.FC<StudioPageProps> = ({
           {/* ----------------- PHASE 3: REFINE STAGE (Expanded Compare) ----------------- */}
           {phase === 'Refine' && (
             <div className="w-full flex-1 flex flex-col items-center justify-between my-4 space-y-4">
-              {/* Compare Canvas with Before / After Split Slider */}
-              <div className="w-full max-w-md h-56 rounded-xl bg-[#090a0c] border border-[rgba(255,255,255,0.12)] relative overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <svg viewBox="0 0 100 120" className="w-28 h-36 stroke-white fill-none stroke-width-2">
-                    <ellipse cx="50" cy="55" rx="30" ry="40" />
-                    <ellipse cx="38" cy="52" rx="5" ry="3" />
-                    <ellipse cx="62" cy="52" rx="5" ry="3" />
-                    <line x1="50" y1="52" x2="50" y2="70" />
-                    <path d="M 40,80 Q 50,88 60,80" />
-                    {disguiseBeard && <path d="M 30,75 Q 50,108 70,75" stroke="#FF8964" />}
-                  </svg>
-                </div>
+              {/* Compare Canvas with Before / After Split Slider & Forensic Graphite Rendering */}
+              <div className="w-full max-w-md h-72 rounded-xl bg-[#f5f0e6] border border-[#d2cbbe] relative overflow-hidden shadow-2xl">
+                <ForensicGraphiteSketch
+                  view="frontal"
+                  jawStyle="sharp"
+                  hasBeard={disguiseBeard}
+                  isMature={timeDialYears > 0}
+                  showMetadata={true}
+                  className="w-full h-full border-none"
+                />
 
                 {/* Amber Speculative Stripe */}
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[rgba(255,180,84,0.2)] border border-[#ffb454] text-[10px] font-mono text-[#ffb454]">
-                  SPECULATIVE TRANSFORM (D7)
+                <div className="absolute top-9 left-2 px-2 py-0.5 rounded bg-[rgba(255,180,84,0.35)] border border-[#8a3b14] text-[9px] font-mono font-bold text-[#8a3b14] z-10">
+                  SPECULATIVE FORENSIC TRANSFORM
                 </div>
 
-                <div className="absolute bottom-2 right-2 text-[10px] font-mono text-[#95979E]">
+                <div className="absolute bottom-6 right-2 text-[10px] font-mono text-[#5a5448] bg-white/80 px-2 py-0.5 rounded shadow z-10">
                   SPLIT: {compareSplit}%
                 </div>
               </div>

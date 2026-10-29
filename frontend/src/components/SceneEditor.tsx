@@ -11,11 +11,14 @@ import {
   Play,
   Pause,
   RotateCcw,
+  Film,
+  Grid,
   WifiOff,
 } from 'lucide-react';
 import { MANDATORY_DISCLAIMER } from '../pages/LandingPage';
 import { Vela } from './Vela';
 import { apiClient } from '../api/client';
+import { SceneStoryboardGrid } from './SceneStoryboardGrid';
 
 export interface SceneEntity {
   id: string;
@@ -29,7 +32,7 @@ export interface SceneEntity {
   conflict_ghost?: { x: number; y: number };
 }
 
-const DEV_FIXTURE_ENTITIES: SceneEntity[] = [
+export const DEV_FIXTURE_ENTITIES: SceneEntity[] = [
   {
     id: 'ent-1',
     kind: 'person',
@@ -92,6 +95,7 @@ export const SceneEditor: React.FC<SceneEditorProps> = ({
   sessionId = 'SES-2026-0814',
   onBackToStudio,
 }) => {
+  const [viewMode, setViewMode] = useState<'spatial' | 'storyboard'>('spatial');
   const [entities, setEntities] = useState<SceneEntity[]>(DEV_FIXTURE_ENTITIES);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>('ent-2');
   const [timelineProgress, setTimelineProgress] = useState(30);
@@ -254,25 +258,61 @@ export const SceneEditor: React.FC<SceneEditorProps> = ({
         </div>
       </div>
 
-      {/* Honest Backend Service Offline Notice */}
-      {isBackendOffline && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
-            <div>
-              <span className="font-semibold text-amber-300">Backend Scene Service Offline (:8000)</span>
-              <p className="text-[11px] text-amber-200/80 mt-0.5">
-                The centralized scene persistence service is unreachable. Showing clearly labeled <code className="px-1 py-0.5 rounded bg-black/40 font-mono text-[10px]">[DEV FIXTURE]</code> demonstrator layout.
-              </p>
-            </div>
-          </div>
-          <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 font-mono text-[10px] shrink-0">
-            OFFLINE FIXTURE MODE
-          </span>
+      {/* View Mode Switcher */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#14161a] border border-[rgba(255,255,255,0.08)]">
+          <button
+            onClick={() => setViewMode('storyboard')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+              viewMode === 'storyboard'
+                ? 'bg-gradient-to-r from-[#7c8cff] to-[#5ad1ff] text-white shadow-lg shadow-[#7c8cff]/20'
+                : 'text-[#95979E] hover:text-white'
+            }`}
+          >
+            <Film className="w-3.5 h-3.5" />
+            <span>9-Panel Storyboard (Reconstruction)</span>
+          </button>
+          <button
+            onClick={() => setViewMode('spatial')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+              viewMode === 'spatial'
+                ? 'bg-gradient-to-r from-[#7c8cff] to-[#5ad1ff] text-white shadow-lg shadow-[#7c8cff]/20'
+                : 'text-[#95979E] hover:text-white'
+            }`}
+          >
+            <Grid className="w-3.5 h-3.5" />
+            <span>Spatial Crime Scene (Interactive)</span>
+          </button>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <span className="text-[11px] font-mono text-[#95979E]">
+          Case DEMO-2026-041 &bull; Fictional Reconstructed Sequence
+        </span>
+      </div>
+
+      {viewMode === 'storyboard' ? (
+        <SceneStoryboardGrid />
+      ) : (
+        <>
+          {/* Honest Backend Service Offline Notice */}
+          {isBackendOffline && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+                <div>
+                  <span className="font-semibold text-amber-300">Backend Scene Service Offline (:8000)</span>
+                  <p className="text-[11px] text-amber-200/80 mt-0.5">
+                    The centralized scene persistence service is unreachable. Showing clearly labeled <code className="px-1 py-0.5 rounded bg-black/40 font-mono text-[10px]">[DEMO FIXTURE]</code> demonstrator layout.
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 font-mono text-[10px] shrink-0">
+                OFFLINE DEMO MODE
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Interactive Canvas Grid */}
         <div className="lg:col-span-8 flex flex-col space-y-4">
           <div className="relative w-full h-[540px] rounded-2xl bg-[#090a0c] border border-[rgba(255,255,255,0.12)] overflow-hidden shadow-2xl select-none">
@@ -591,6 +631,8 @@ export const SceneEditor: React.FC<SceneEditorProps> = ({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

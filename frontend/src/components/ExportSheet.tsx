@@ -178,6 +178,7 @@ export const ExportSheet: React.FC<ExportSheetProps> = ({
         });
       } else if (format === 'json') {
         const canonicalData = {
+          demo_notice: 'DEMO DATA — NOT A REAL INCIDENT',
           disclaimer: MANDATORY_DISCLAIMER,
           case_number: caseNumber,
           session_id: sessionId,
@@ -198,7 +199,7 @@ export const ExportSheet: React.FC<ExportSheetProps> = ({
       } else if (format === 'svg') {
         const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="850" viewBox="0 0 600 850" style="background:#090a0c; font-family:sans-serif;">
   <rect x="0" y="0" width="600" height="40" fill="#5A250A"/>
-  <text x="300" y="25" fill="#FFC1AD" font-size="11" font-weight="bold" text-anchor="middle">${MANDATORY_DISCLAIMER}</text>
+  <text x="300" y="25" fill="#FFC1AD" font-size="10" font-weight="bold" text-anchor="middle">DEMO DATA — NOT A REAL INCIDENT · ${MANDATORY_DISCLAIMER}</text>
   <text x="40" y="80" fill="#ffffff" font-size="20" font-weight="bold">VELORA COURT COMPOSITE PACKET</text>
   <text x="40" y="105" fill="#A9A9AA" font-size="11" font-family="monospace">CASE: ${caseNumber} · SESSION: ${sessionId} · SHA-256: ${sha256Hash.slice(0, 16)}...</text>
   <ellipse cx="300" cy="300" rx="110" ry="150" stroke="#7c8cff" stroke-width="2" fill="none"/>
