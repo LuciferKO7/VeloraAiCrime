@@ -363,4 +363,37 @@ describe('ApiClient & API Foundation', () => {
       expect(client.getToken()).toBe('header.payload.signature');
     });
   });
+
+  describe('Local-Only Privacy Invariant Enforcement (R11.4)', () => {
+    it('attaches X-Data-Mode: real header when dataMode is real', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve(JSON.stringify({ status: 'ok' })),
+      });
+      global.fetch = mockFetch;
+
+      await client.post('/sessions/s-1/statements', { text: 'test' }, {
+        caseId: 'case-real-001',
+        dataMode: 'real',
+        purpose: 'Court authorized interview',
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, init] = mockFetch.mock.calls[0];
+      const headers = new Headers(init.headers);
+      expect(headers.get('X-Data-Mode')).toBe('real');
+    });
+
+    it('blocks and throws error if cloud endpoint is targeted for real cases', async () => {
+      const cloudClient = new ApiClient('https://generativelanguage.googleapis.com/v1');
+      await expect(
+        cloudClient.post('/models/gemini:generateContent', {}, {
+          dataMode: 'real',
+          purpose: 'Witness transcription',
+        })
+      ).rejects.toThrow('LLM_UNAVAILABLE_LOCAL');
+    });
+  });
 });

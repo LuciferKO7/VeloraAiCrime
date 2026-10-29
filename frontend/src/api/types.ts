@@ -55,6 +55,10 @@ export interface RequestOptions extends RequestInit {
    * If true, bypasses attaching Authorization: Bearer <token>.
    */
   skipAuth?: boolean;
+  /**
+   * Privacy data mode per MASTER_PROMPT R11.4 ('real' = Local-only Ollama, 'demo' = Gemini allowed).
+   */
+  dataMode?: 'demo' | 'real';
 }
 
 /**

@@ -3,6 +3,24 @@ import { extractCaseIdFromPath, getCasePurpose } from './purpose';
 import type { HealthResponse, LoginResponse, RequestOptions } from './types';
 
 /**
+ * Genuine request lifecycle telemetry collected by ApiClient.
+ */
+export interface RequestTelemetryRecord {
+  endpoint: string;
+  method: string;
+  latencyMs: number;
+  statusCode: number;
+  success: boolean;
+  timestamp: string;
+  llmInfo?: {
+    provider?: string;
+    model?: string;
+    latency_ms?: number;
+    route_reason?: string;
+  };
+}
+
+/**
  * Default documented backend API base path.
  * In development, Vite dev server proxies /api to http://localhost:8000.
  */
@@ -11,6 +29,8 @@ export const DEFAULT_API_BASE = '/api/v1';
 export class ApiClient {
   private baseUrl: string;
   private authToken: string | null = null;
+  private telemetryHistory: RequestTelemetryRecord[] = [];
+  private telemetryListeners: Set<(record: RequestTelemetryRecord) => void> = new Set();
 
   constructor(baseUrl: string = DEFAULT_API_BASE) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
@@ -73,6 +93,18 @@ export class ApiClient {
       headers.set('X-Access-Purpose', resolvedPurpose);
     }
 
+    // Attach X-Data-Mode and enforce R11.4 Local-only privacy
+    const resolvedDataMode = options.dataMode;
+    if (resolvedDataMode) {
+      headers.set('X-Data-Mode', resolvedDataMode);
+      if (resolvedDataMode === 'real') {
+        // Enforce that real cases cannot target external cloud endpoints
+        if (url.includes('googleapis.com') || url.includes('openai.com') || url.includes('anthropic.com')) {
+          throw new Error('LLM_UNAVAILABLE_LOCAL: Local-only privacy invariant (R11.4) forbids cloud routing for real cases.');
+        }
+      }
+    }
+
     // Handle JSON body
     let finalBody: BodyInit | null | undefined = body as BodyInit | null | undefined;
     if (body !== undefined && body !== null && !(body instanceof FormData) && typeof body === 'object') {
@@ -83,6 +115,9 @@ export class ApiClient {
     }
 
     let response: Response;
+    const startTime = performance.now();
+    const method = customConfig.method || 'GET';
+
     try {
       response = await fetch(url, {
         ...customConfig,
@@ -90,27 +125,111 @@ export class ApiClient {
         body: finalBody,
       });
     } catch (networkError: unknown) {
+      const elapsed = Math.round(performance.now() - startTime);
+      this.recordTelemetry({
+        endpoint: normalizedEndpoint,
+        method,
+        latencyMs: elapsed,
+        statusCode: 0,
+        success: false,
+        timestamp: new Date().toISOString(),
+      });
       // Genuine network failure: do not fabricate a backend error code
       throw createNetworkError(networkError);
     }
 
+    const elapsed = Math.round(performance.now() - startTime);
     const rawText = await response.text();
 
     if (!response.ok) {
+      this.recordTelemetry({
+        endpoint: normalizedEndpoint,
+        method,
+        latencyMs: elapsed,
+        statusCode: response.status,
+        success: false,
+        timestamp: new Date().toISOString(),
+      });
       throw parseErrorResponse(response, rawText);
     }
 
     // Handle 204 No Content or empty bodies
     if (response.status === 204 || rawText.trim().length === 0) {
+      this.recordTelemetry({
+        endpoint: normalizedEndpoint,
+        method,
+        latencyMs: elapsed,
+        statusCode: response.status,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
       return null as unknown as T;
     }
 
     try {
-      return JSON.parse(rawText) as T;
+      const parsed = JSON.parse(rawText) as T;
+      const llmInfo = (parsed && typeof parsed === 'object' && 'llm' in (parsed as Record<string, unknown>))
+        ? (parsed as Record<string, unknown>).llm as RequestTelemetryRecord['llmInfo']
+        : undefined;
+
+      this.recordTelemetry({
+        endpoint: normalizedEndpoint,
+        method,
+        latencyMs: elapsed,
+        statusCode: response.status,
+        success: true,
+        timestamp: new Date().toISOString(),
+        llmInfo,
+      });
+
+      return parsed;
     } catch {
+      this.recordTelemetry({
+        endpoint: normalizedEndpoint,
+        method,
+        latencyMs: elapsed,
+        statusCode: response.status,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
       // If response was 200 OK but body wasn't JSON, return raw text
       return rawText as unknown as T;
     }
+  }
+
+  private recordTelemetry(record: RequestTelemetryRecord): void {
+    this.telemetryHistory.push(record);
+    if (this.telemetryHistory.length > 50) {
+      this.telemetryHistory.shift();
+    }
+    this.telemetryListeners.forEach((listener) => {
+      try {
+        listener(record);
+      } catch {
+        // ignore listener errors
+      }
+    });
+  }
+
+  public getTelemetryHistory(): RequestTelemetryRecord[] {
+    return [...this.telemetryHistory];
+  }
+
+  public getLatestTelemetry(endpointSubstring?: string): RequestTelemetryRecord | null {
+    if (!endpointSubstring) {
+      return this.telemetryHistory[this.telemetryHistory.length - 1] || null;
+    }
+    for (let i = this.telemetryHistory.length - 1; i >= 0; i--) {
+      if (this.telemetryHistory[i].endpoint.includes(endpointSubstring)) {
+        return this.telemetryHistory[i];
+      }
+    }
+    return null;
+  }
+
+  public addTelemetryListener(listener: (rec: RequestTelemetryRecord) => void): () => void {
+    this.telemetryListeners.add(listener);
+    return () => this.telemetryListeners.delete(listener);
   }
 
   public get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
