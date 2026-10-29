@@ -201,12 +201,25 @@ export const ExportSheet: React.FC<ExportSheetProps> = ({
   <rect x="0" y="0" width="600" height="40" fill="#5A250A"/>
   <text x="300" y="25" fill="#FFC1AD" font-size="10" font-weight="bold" text-anchor="middle">DEMO DATA — NOT A REAL INCIDENT · ${MANDATORY_DISCLAIMER}</text>
   <text x="40" y="80" fill="#ffffff" font-size="20" font-weight="bold">VELORA COURT COMPOSITE PACKET</text>
-  <text x="40" y="105" fill="#A9A9AA" font-size="11" font-family="monospace">CASE: ${caseNumber} · SESSION: ${sessionId} · SHA-256: ${sha256Hash.slice(0, 16)}...</text>
-  <ellipse cx="300" cy="300" rx="110" ry="150" stroke="#7c8cff" stroke-width="2" fill="none"/>
-  <ellipse cx="260" cy="280" rx="16" ry="10" stroke="#ffffff" stroke-width="2" fill="none"/>
-  <ellipse cx="340" cy="280" rx="16" ry="10" stroke="#ffffff" stroke-width="2" fill="none"/>
-  <line x1="300" y1="280" x2="300" y2="345" stroke="#ffffff" stroke-width="2"/>
-  <path d="M 265,390 Q 300,420 335,390" stroke="#ffffff" stroke-width="2" fill="none"/>
+  <!-- Forensic Scanned Paper Canvas -->
+  <rect x="180" y="145" width="240" height="325" rx="16" fill="#f5f0e6" stroke="#d2cbbe" stroke-width="1.5"/>
+  <!-- Head & Jaw Contour (sharp angular jaw) -->
+  <path d="M 240,240 C 240,185 360,185 360,240 C 360,310 338,380 300,410 C 262,380 240,310 240,240 Z" fill="#eee7d8" stroke="#4a4235" stroke-width="2.5"/>
+  <!-- Hair & Temple Hatching -->
+  <path d="M 235,230 C 238,175 362,175 365,230 C 352,205 320,195 300,196 C 275,195 248,206 235,230 Z" fill="#2d2720" stroke="#1f1a14" stroke-width="2"/>
+  <!-- Defined Eyebrows -->
+  <path d="M 260,265 C 272,258 285,260 292,267" stroke="#332c23" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M 308,267 C 315,260 328,258 340,265" stroke="#332c23" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- Deep-Set Almond Eyes -->
+  <ellipse cx="276" cy="280" rx="10" ry="5.5" fill="#fdfbf7" stroke="#4a4235" stroke-width="1.5"/>
+  <circle cx="276" cy="280" r="3.5" fill="#2d2720"/>
+  <ellipse cx="324" cy="280" rx="10" ry="5.5" fill="#fdfbf7" stroke="#4a4235" stroke-width="1.5"/>
+  <circle cx="324" cy="280" r="3.5" fill="#2d2720"/>
+  <!-- Straight Nose Bridge & Tip -->
+  <path d="M 299,268 L 297,318 L 306,322" stroke="#6b5f4f" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Mouth & Lip Philtrum -->
+  <path d="M 284,352 Q 300,356 316,352" stroke="#524739" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M 288,362 Q 300,366 312,362" stroke="#807260" stroke-width="1.5" fill="none" stroke-linecap="round"/>
   <rect x="40" y="500" width="520" height="190" rx="12" fill="#14161a" stroke="rgba(255,255,255,0.1)"/>
   <text x="60" y="530" fill="#5ad1ff" font-size="13" font-weight="bold">CONFIRMED ATTRIBUTES</text>
   ${attributes.map((a, i) => `<text x="60" y="${555 + i * 22}" fill="#f4f5f7" font-size="11">• ${a.key}: ${a.value} (${a.confidence})</text>`).join('\n  ')}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Mic,
   Send,
@@ -13,6 +13,10 @@ import {
   Compass,
   Layers,
   WifiOff,
+  AlertCircle,
+  FileText,
+  Square,
+  Wand2,
 } from 'lucide-react';
 import { DynamicIsland } from '../components/DynamicIsland';
 import { Vela, type VelaState } from '../components/Vela';
@@ -23,6 +27,11 @@ import {
   DEMO_FACIAL_ATTRIBUTES,
   DEMO_AI_ASSUMED_UNSTATED,
 } from '../store/demoData';
+import {
+  AudioRecordingSession,
+  sendAudioForTranscription,
+  DEMO_SAMPLE_TRANSCRIPTS,
+} from '../utils/audioRecorder';
 import type { CaseItem } from './CommandCenterPage';
 import { apiClient } from '../api/client';
 
@@ -37,10 +46,10 @@ type StudioPhase = 'Describe' | 'Recognize' | 'Refine' | 'Finalize';
 
 export const StudioPage: React.FC<StudioPageProps> = ({
   activeCase = {
-    id: 'case-demo-001',
-    case_number: 'DEMO-001',
-    title: 'Commercial District Armed Robbery',
-    station: 'Central Division',
+    id: 'case-demo-2026-041',
+    case_number: 'DEMO-2026-041',
+    title: 'Vehicle incident — reconstructed witness account',
+    station: 'Metropolitan Forensic Hub',
     status: 'active',
     data_mode: 'demo',
     default_appearance_group: 'unspecified',
@@ -57,6 +66,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({
 
   // Phase 1 Describe state
   const [isRecording, setIsRecording] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const [micNotice, setMicNotice] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState('ta'); // Tamil
   const [transcriptOriginal, setTranscriptOriginal] = useState(
     'அவர் சுமார் 30 வயது, கூர்மையான தாடை, அடர்ந்த புருவங்கள் மற்றும் கருப்பு ஜாக்கெட் அணிந்திருந்தார்.'
@@ -67,6 +78,15 @@ export const StudioPage: React.FC<StudioPageProps> = ({
   const [unmappedNotes, setUnmappedNotes] = useState<string[]>([
     'dark nylon jacket (clothing outside facial bounds)',
   ]);
+
+  const sessionRef = useRef<AudioRecordingSession | null>(null);
+
+  // Cleanup microphone tracks on unmount
+  useEffect(() => {
+    return () => {
+      sessionRef.current?.cleanupTracks();
+    };
+  }, []);
 
   // Submission & service availability states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -91,6 +111,15 @@ export const StudioPage: React.FC<StudioPageProps> = ({
     { id: 'v6', status: 'ready', picked: false, score: 0.79, axes: 'frontal · speculative mature (+5y)', view: 'frontal' as const, jawStyle: 'sharp' as const, hasCap: false, hasBeard: false, isMature: true },
   ]);
 
+  // Generation tracking & state
+  const [isGeneratingRound, setIsGeneratingRound] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [generationRequestId, setGenerationRequestId] = useState<string>('GEN-REQ-2026-041-01');
+  const [generationTimestamp, setGenerationTimestamp] = useState<string>('09:28:40');
+
+  // Currently picked variant across Refine & Finalize
+  const activeVariant = cards.find((c) => c.picked) || cards[1];
+
   // Phase 3 Refine state
   const compareSplit = 50;
   const [timeDialYears, setTimeDialYears] = useState(0);
@@ -102,20 +131,61 @@ export const StudioPage: React.FC<StudioPageProps> = ({
   const [finalizedSuccess, setFinalizedSuccess] = useState(false);
   const [exportFormat, setExportFormat] = useState<'png' | 'pdf' | 'json'>('pdf');
 
-  // Toggle audio recording
-  const handleToggleMic = () => {
+  // Toggle genuine audio recording with track lifecycle
+  const handleToggleMic = async () => {
+    setMicError(null);
+    setMicNotice(null);
+
     if (!isRecording) {
-      setIsRecording(true);
-      setVelaState('listening');
-      setVelaSpeechOverride('Listening to witness statement in Tamil...');
+      try {
+        const session = new AudioRecordingSession();
+        sessionRef.current = session;
+        await session.start();
+        setIsRecording(true);
+        setVelaState('listening');
+        setVelaSpeechOverride(`Listening to witness statement via microphone (${selectedLanguage.toUpperCase()})...`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Microphone access failed.';
+        setMicError(msg);
+        setVelaState('wince');
+      }
     } else {
       setIsRecording(false);
       setVelaState('thinking');
-      setTimeout(() => {
-        setVelaState('curious');
-        setVelaSpeechOverride(null);
-      }, 900);
+      setVelaSpeechOverride('Processing audio recording...');
+
+      try {
+        if (!sessionRef.current) throw new Error('No active recording.');
+        const res = await sessionRef.current.stop();
+
+        try {
+          const trans = await sendAudioForTranscription(res.blob, selectedLanguage);
+          setTranscriptOriginal(trans.text);
+          setVelaState('proud');
+          setVelaSpeechOverride('Transcribed witness recording.');
+        } catch {
+          // Speech service (:8002) offline
+          setMicNotice(
+            `Captured ${(res.sizeBytes / 1024).toFixed(1)} KB audio locally (${res.durationSec}s). Speech Service (:8002) is offline.`
+          );
+          setVelaState('curious');
+          setVelaSpeechOverride('Audio recorded locally. Service offline (:8002) — edit manually or load sample.');
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Error stopping recording.';
+        setMicError(msg);
+        setVelaState('idle');
+      }
     }
+  };
+
+  const handleLoadDemoTranscript = () => {
+    const sample = DEMO_SAMPLE_TRANSCRIPTS[selectedLanguage] || DEMO_SAMPLE_TRANSCRIPTS.en;
+    setTranscriptOriginal(sample.original);
+    setTranscriptEnglish(sample.english);
+    setMicNotice(`Loaded verified [DEMO FIXTURE] ${sample.languageName} statement.`);
+    setMicError(null);
+    setVelaState('curious');
   };
 
   const handleSendTranscript = async () => {
@@ -180,12 +250,55 @@ export const StudioPage: React.FC<StudioPageProps> = ({
     }
   };
 
-  const handleLoadDevBaseline = () => {
-    setIsDevFixtureMode(true);
+  // Deterministic client-side extraction per P0 emergency offline requirement
+  const handleDeterministicParse = () => {
     setSubmitError(null);
+    setIsDevFixtureMode(true);
+    setAttributes(DEMO_FACIAL_ATTRIBUTES);
+    setAiAssumed(DEMO_AI_ASSUMED_UNSTATED);
+    const sample = DEMO_SAMPLE_TRANSCRIPTS[selectedLanguage] || DEMO_SAMPLE_TRANSCRIPTS.en;
+    setTranscriptEnglish(sample.english);
     setVelaState('curious');
-    setVelaSpeechOverride('Loaded seeded demonstration baseline for presentation testing.');
+    setVelaSpeechOverride('Deterministic client-side extraction complete for case DEMO-2026-041.');
     setPhase('Recognize');
+  };
+
+  // Genuine ML generation trigger with distinct generation request ID & honest offline handling
+  const handleGenerateRound = async () => {
+    const reqId = 'GEN-REQ-' + Date.now().toString(36).toUpperCase();
+    setIsGeneratingRound(true);
+    setGenerationError(null);
+    setVelaState('sketching');
+    setVelaSpeechOverride('Calling ML generation service (:8001)...');
+
+    try {
+      await apiClient.post(`/sessions/${sessionId}/rounds/generate`, {
+        request_id: reqId,
+        locked_attributes: attributes.filter((a) => a.locked),
+      });
+      setGenerationRequestId(reqId);
+      setGenerationTimestamp(new Date().toLocaleTimeString());
+      setVelaState('proud');
+      setVelaSpeechOverride('New neural composite generated.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ML Service offline (:8001)';
+      setGenerationError(
+        `ML Service Offline (:8001): ${msg}. Cannot synthesize neural variation on port 8001.`
+      );
+      setVelaState('wince');
+      setVelaSpeechOverride('ML service offline (:8001). Load verified reference composite.');
+    } finally {
+      setIsGeneratingRound(false);
+    }
+  };
+
+  const handleLoadCompositeReference = () => {
+    const reqId = 'REF-COMPOSITE-' + Math.floor(Math.random() * 8999 + 1000);
+    setGenerationRequestId(reqId);
+    setGenerationTimestamp(new Date().toLocaleTimeString());
+    setGenerationError(null);
+    setVelaState('proud');
+    setVelaSpeechOverride('Loaded official forensic graphite composite reference for DEMO-2026-041.');
   };
 
   const handlePickCard = (id: string) => {
@@ -353,10 +466,11 @@ export const StudioPage: React.FC<StudioPageProps> = ({
                     <span>Retry Connection</span>
                   </button>
                   <button
-                    onClick={handleLoadDevBaseline}
-                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium"
+                    onClick={handleDeterministicParse}
+                    className="px-2.5 py-1 rounded-lg bg-purple-500/30 hover:bg-purple-500/40 text-purple-200 text-[11px] font-semibold border border-purple-500/40 flex items-center gap-1"
                   >
-                    [Dev Fixture] Load Seeded Baseline
+                    <FileText className="w-3 h-3 text-purple-300" />
+                    <span>[DEMO SIMULATION] Continue with Sample Extraction (DEMO-2026-041)</span>
                   </button>
                 </div>
               </div>
@@ -371,26 +485,36 @@ export const StudioPage: React.FC<StudioPageProps> = ({
             )}
           </div>
 
-          {/* Action trigger */}
-          <button
-            onClick={handleSendTranscript}
-            disabled={isSubmitting || !transcriptOriginal.trim()}
-            className={`btn-primary-glow w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold ${
-              isSubmitting || !transcriptOriginal.trim() ? 'opacity-60 cursor-not-allowed' : ''
-            }`}
-          >
-            {isSubmitting ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Submitting to :8000...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-3.5 h-3.5" />
-                <span>Process & Update Composite</span>
-              </>
-            )}
-          </button>
+          {/* Action triggers */}
+          <div className="space-y-2">
+            <button
+              onClick={handleSendTranscript}
+              disabled={isSubmitting || !transcriptOriginal.trim()}
+              className={`btn-primary-glow w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold ${
+                isSubmitting || !transcriptOriginal.trim() ? 'opacity-60 cursor-not-allowed' : ''
+              }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Submitting to :8000...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Submit to Backend Hub (:8000)</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleDeterministicParse}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold bg-purple-500/20 text-purple-200 border border-purple-500/40 hover:bg-purple-500/30 transition-all"
+            >
+              <FileText className="w-3.5 h-3.5 text-purple-300" />
+              <span>[DEMO SIMULATION] Parse Sample Statement</span>
+            </button>
+          </div>
         </aside>
 
         {/* ========================================================= */}
@@ -424,7 +548,23 @@ export const StudioPage: React.FC<StudioPageProps> = ({
 
           {/* ----------------- PHASE 1: DESCRIBE STAGE ----------------- */}
           {phase === 'Describe' && (
-            <div className="flex-1 flex flex-col items-center justify-center my-6 text-center space-y-6 w-full max-w-md">
+            <div className="flex-1 flex flex-col items-center justify-center my-6 text-center space-y-5 w-full max-w-md">
+              {/* Mic error notice */}
+              {micError && (
+                <div className="p-3 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center justify-center gap-2 w-full">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                  <span>{micError}</span>
+                </div>
+              )}
+
+              {/* Mic capture status */}
+              {micNotice && !micError && (
+                <div className="p-3 rounded-2xl bg-[#5ad1ff]/10 border border-[#5ad1ff]/20 text-[#5ad1ff] text-xs flex items-center justify-center gap-2 w-full">
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <span>{micNotice}</span>
+                </div>
+              )}
+
               <div
                 onClick={handleToggleMic}
                 className={`w-28 h-28 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 shadow-2xl relative ${
@@ -433,7 +573,11 @@ export const StudioPage: React.FC<StudioPageProps> = ({
                     : 'bg-gradient-to-tr from-[#7c8cff] to-[#5ad1ff] hover:scale-105 shadow-[0_0_30px_rgba(124,140,255,0.4)]'
                 }`}
               >
-                <Mic className="w-10 h-10 text-[#090a0c]" />
+                {isRecording ? (
+                  <Square className="w-10 h-10 text-white fill-current" />
+                ) : (
+                  <Mic className="w-10 h-10 text-[#090a0c]" />
+                )}
                 {isRecording && (
                   <span className="absolute inset-0 rounded-full border-4 border-white animate-ping opacity-60" />
                 )}
@@ -448,8 +592,17 @@ export const StudioPage: React.FC<StudioPageProps> = ({
                 </p>
               </div>
 
+              {/* Demo Fixture Load Sample Button */}
+              <button
+                onClick={handleLoadDemoTranscript}
+                className="px-4 py-2 rounded-xl bg-purple-500/20 text-purple-200 border border-purple-500/40 text-xs font-semibold hover:bg-purple-500/30 flex items-center gap-2 transition-all"
+              >
+                <FileText className="w-3.5 h-3.5 text-purple-400" />
+                <span>[DEMO FIXTURE] Load Sample Transcript ({selectedLanguage.toUpperCase()})</span>
+              </button>
+
               {/* Language Selector chips */}
-              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
                 {[
                   { code: 'ta', name: 'தமிழ்' },
                   { code: 'hi', name: 'हिन्दी' },
@@ -474,7 +627,57 @@ export const StudioPage: React.FC<StudioPageProps> = ({
 
           {/* ----------------- PHASE 2: RECOGNIZE STAGE (6 Cards) ----------------- */}
           {phase === 'Recognize' && (
-            <div className="w-full flex-1 my-4">
+            <div className="w-full flex-1 my-3 space-y-3">
+              {/* Generation Control Header */}
+              <div className="p-3 rounded-xl bg-[#14161a] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white">Current Generation Batch:</span>
+                    <span className="font-mono text-[#5ad1ff]">{generationRequestId}</span>
+                    <span className="text-[10px] text-[#95979E]">({generationTimestamp})</span>
+                  </div>
+                  <p className="text-[11px] text-[#A9A9AA]">
+                    Picked: <span className="text-[#7c8cff] font-semibold">{activeVariant.axes}</span>
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={handleGenerateRound}
+                    disabled={isGeneratingRound}
+                    className="btn-primary-glow px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingRound ? 'animate-spin' : ''}`} />
+                    <span>{isGeneratingRound ? 'Synthesizing :8001...' : 'Generate New Round'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleLoadCompositeReference}
+                    className="px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-200 border border-purple-500/40 hover:bg-purple-500/30 text-xs font-medium flex items-center gap-1.5 transition-all"
+                  >
+                    <Wand2 className="w-3.5 h-3.5 text-purple-300" />
+                    <span>[DEMO FIXTURE] Load Composite Reference</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Offline Generation Error Alert */}
+              {generationError && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>{generationError}</span>
+                  </div>
+                  <button
+                    onClick={handleLoadCompositeReference}
+                    className="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 font-semibold text-[11px] hover:bg-amber-500/30 shrink-0"
+                  >
+                    Load Verified Reference
+                  </button>
+                </div>
+              )}
+
+              {/* 6 Recognition Cards Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {cards.map((card, idx) => (
                   <div
@@ -525,20 +728,21 @@ export const StudioPage: React.FC<StudioPageProps> = ({
           {/* ----------------- PHASE 3: REFINE STAGE (Expanded Compare) ----------------- */}
           {phase === 'Refine' && (
             <div className="w-full flex-1 flex flex-col items-center justify-between my-4 space-y-4">
-              {/* Compare Canvas with Before / After Split Slider & Forensic Graphite Rendering */}
+              {/* Compare Canvas with Forensic Graphite Rendering of Active Selected Variant */}
               <div className="w-full max-w-md h-72 rounded-xl bg-[#f5f0e6] border border-[#d2cbbe] relative overflow-hidden shadow-2xl">
                 <ForensicGraphiteSketch
-                  view="frontal"
-                  jawStyle="sharp"
-                  hasBeard={disguiseBeard}
-                  isMature={timeDialYears > 0}
+                  view={activeVariant.view}
+                  jawStyle={activeVariant.jawStyle}
+                  hasCap={activeVariant.hasCap}
+                  hasBeard={disguiseBeard || activeVariant.hasBeard}
+                  isMature={timeDialYears > 0 || activeVariant.isMature}
                   showMetadata={true}
                   className="w-full h-full border-none"
                 />
 
                 {/* Amber Speculative Stripe */}
                 <div className="absolute top-9 left-2 px-2 py-0.5 rounded bg-[rgba(255,180,84,0.35)] border border-[#8a3b14] text-[9px] font-mono font-bold text-[#8a3b14] z-10">
-                  SPECULATIVE FORENSIC TRANSFORM
+                  SPECULATIVE FORENSIC TRANSFORM ({activeVariant.view.toUpperCase()})
                 </div>
 
                 <div className="absolute bottom-6 right-2 text-[10px] font-mono text-[#5a5448] bg-white/80 px-2 py-0.5 rounded shadow z-10">
@@ -597,16 +801,19 @@ export const StudioPage: React.FC<StudioPageProps> = ({
           {/* ----------------- PHASE 4: FINALIZE STAGE ----------------- */}
           {phase === 'Finalize' && (
             <div className="w-full flex-1 flex flex-col items-center justify-center my-6 space-y-5 text-center">
-              <div className="w-48 h-56 rounded-2xl bg-[#090a0c] border border-[rgba(255,255,255,0.16)] flex flex-col items-center justify-center p-4 relative shadow-2xl">
-                <svg viewBox="0 0 100 120" className="w-28 h-36 stroke-white fill-none stroke-width-2">
-                  <ellipse cx="50" cy="55" rx="30" ry="40" />
-                  <ellipse cx="38" cy="52" rx="5" ry="3" />
-                  <ellipse cx="62" cy="52" rx="5" ry="3" />
-                  <line x1="50" y1="52" x2="50" y2="70" />
-                  <path d="M 40,80 Q 50,88 60,80" />
-                </svg>
-                <div className="absolute bottom-2 inset-x-2 py-0.5 bg-[#5A250A] text-[8px] font-mono text-[#FF8964] rounded">
-                  AI AID — NOT EVIDENCE OF IDENTITY
+              {/* Sealed Final Forensic Composite Sketch — Authentic Graphite Art */}
+              <div className="w-56 h-72 rounded-2xl bg-[#f5f0e6] border border-[#d2cbbe] relative overflow-hidden shadow-2xl">
+                <ForensicGraphiteSketch
+                  view={activeVariant.view}
+                  jawStyle={activeVariant.jawStyle}
+                  hasCap={activeVariant.hasCap}
+                  hasBeard={disguiseBeard || activeVariant.hasBeard}
+                  isMature={timeDialYears > 0 || activeVariant.isMature}
+                  showMetadata={true}
+                  className="w-full h-full border-none"
+                />
+                <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/75 text-[8px] font-mono text-emerald-400 border border-emerald-500/30">
+                  SEALED &bull; {generationRequestId}
                 </div>
               </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Mic,
   Square,
@@ -6,9 +6,18 @@ import {
   Moon,
   ArrowRight,
   LogOut,
+  Sparkles,
+  AlertCircle,
+  FileText,
 } from 'lucide-react';
 import { Vela, type VelaState } from './Vela';
 import { MANDATORY_DISCLAIMER } from '../pages/LandingPage';
+import { ForensicGraphiteSketch } from './ForensicGraphiteSketch';
+import {
+  AudioRecordingSession,
+  sendAudioForTranscription,
+  DEMO_SAMPLE_TRANSCRIPTS,
+} from '../utils/audioRecorder';
 
 interface WitnessModeProps {
   onExitWitnessMode: () => void;
@@ -59,7 +68,7 @@ const REGIONAL_PROMPTS: Record<
 
 export const WitnessMode: React.FC<WitnessModeProps> = ({
   onExitWitnessMode,
-  caseNumber = 'DEMO-001',
+  caseNumber = 'DEMO-2026-041',
   initialLanguage = 'ta',
 }) => {
   const [lang, setLang] = useState<'ta' | 'hi' | 'en'>(
@@ -67,24 +76,88 @@ export const WitnessMode: React.FC<WitnessModeProps> = ({
   );
   const [highContrast, setHighContrast] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [micStatusMessage, setMicStatusMessage] = useState<string | null>(null);
+  const [micErrorMessage, setMicErrorMessage] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<string>('');
   const [velaState, setVelaState] = useState<VelaState>('idle');
   const [step, setStep] = useState<'speak' | 'choose'>('speak');
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
 
+  const sessionRef = useRef<AudioRecordingSession | null>(null);
+
+  // Clean up microphone tracks on unmount
+  useEffect(() => {
+    return () => {
+      sessionRef.current?.cleanupTracks();
+    };
+  }, []);
+
   const t = REGIONAL_PROMPTS[lang] || REGIONAL_PROMPTS.en;
 
-  const handleToggleMic = () => {
+  const handleToggleMic = async () => {
+    setMicErrorMessage(null);
+    setMicStatusMessage(null);
+
     if (!isRecording) {
-      setIsRecording(true);
-      setVelaState('listening');
+      try {
+        const session = new AudioRecordingSession();
+        sessionRef.current = session;
+        await session.start();
+        setIsRecording(true);
+        setVelaState('listening');
+        setMicStatusMessage('Recording active — speak into your microphone...');
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Microphone initialization failed.';
+        setMicErrorMessage(msg);
+        setVelaState('wince');
+      }
     } else {
       setIsRecording(false);
       setVelaState('thinking');
-      setTimeout(() => {
-        setVelaState('curious');
-        setStep('choose');
-      }, 1400);
+
+      try {
+        if (!sessionRef.current) throw new Error('No active recording session.');
+        const result = await sessionRef.current.stop();
+        setMicStatusMessage(
+          `Audio captured (${(result.sizeBytes / 1024).toFixed(1)} KB, ${result.durationSec}s). Contacting speech service...`
+        );
+
+        try {
+          const resp = await sendAudioForTranscription(result.blob, lang);
+          setTranscript(resp.text);
+          setVelaState('proud');
+          setTimeout(() => {
+            setStep('choose');
+          }, 900);
+        } catch {
+          // Honest offline speech handling
+          const sample = DEMO_SAMPLE_TRANSCRIPTS[lang] || DEMO_SAMPLE_TRANSCRIPTS.en;
+          setTranscript(sample.original);
+          setMicStatusMessage(
+            `Speech Service (:8002) is offline. Captured ${(result.sizeBytes / 1024).toFixed(1)} KB locally. Loaded regional demonstration sample.`
+          );
+          setVelaState('curious');
+          setTimeout(() => {
+            setStep('choose');
+          }, 1400);
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Error stopping recording.';
+        setMicErrorMessage(msg);
+        setVelaState('idle');
+      }
     }
+  };
+
+  const handleLoadDemoTranscript = () => {
+    const sample = DEMO_SAMPLE_TRANSCRIPTS[lang] || DEMO_SAMPLE_TRANSCRIPTS.en;
+    setTranscript(sample.original);
+    setMicErrorMessage(null);
+    setMicStatusMessage(`Loaded verified [DEMO FIXTURE] ${sample.languageName} statement.`);
+    setVelaState('curious');
+    setTimeout(() => {
+      setStep('choose');
+    }, 700);
   };
 
   return (
@@ -162,8 +235,24 @@ export const WitnessMode: React.FC<WitnessModeProps> = ({
               {t.instructions}
             </p>
 
+            {/* Mic Error Alert */}
+            {micErrorMessage && (
+              <div className="p-3 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center justify-center gap-2 max-w-md mx-auto">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                <span>{micErrorMessage}</span>
+              </div>
+            )}
+
+            {/* Mic Status Banner */}
+            {micStatusMessage && !micErrorMessage && (
+              <div className="p-3 rounded-2xl bg-[#5ad1ff]/10 border border-[#5ad1ff]/20 text-[#5ad1ff] text-xs flex items-center justify-center gap-2 max-w-md mx-auto">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>{micStatusMessage}</span>
+              </div>
+            )}
+
             {/* Giant Mic Touch Button (≥48px, 120px orb) */}
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center justify-center gap-4">
               <button
                 onClick={handleToggleMic}
                 className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full flex flex-col items-center justify-center gap-2 transition-all shadow-2xl active:scale-95 ${
@@ -185,6 +274,15 @@ export const WitnessMode: React.FC<WitnessModeProps> = ({
                   </>
                 )}
               </button>
+
+              {/* Explicit Demo Fixture Fallback Button */}
+              <button
+                onClick={handleLoadDemoTranscript}
+                className="px-4 py-2 rounded-xl bg-purple-500/15 border border-purple-500/40 text-purple-300 text-xs font-medium hover:bg-purple-500/25 flex items-center gap-2 transition-all"
+              >
+                <FileText className="w-3.5 h-3.5 text-purple-400" />
+                <span>[DEMO FIXTURE] Load Sample Transcript ({t.pick})</span>
+              </button>
             </div>
           </div>
         )}
@@ -194,37 +292,51 @@ export const WitnessMode: React.FC<WitnessModeProps> = ({
           <div className="w-full space-y-6">
             <h2 className="text-lg sm:text-xl font-bold text-white">{t.nextStepPrompt}</h2>
 
-            {/* 3 Large Touch Face Cards */}
+            {/* Transcript preview ribbon */}
+            {transcript && (
+              <div className="p-3 rounded-2xl bg-[#14161a] border border-white/10 text-xs text-[#A9A9AA] max-w-lg mx-auto">
+                <span className="text-[#5ad1ff] font-semibold block mb-0.5">Witness Statement Reference:</span>
+                "{transcript}"
+              </div>
+            )}
+
+            {/* 3 Large Touch Face Cards with Authentic Forensic Graphite Art */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-              {[1, 2, 3].map((cardNum) => {
-                const isSelected = selectedVariant === cardNum;
+              {[
+                { num: 1, view: 'frontal' as const, jawStyle: 'sharp' as const, hasCap: false },
+                { num: 2, view: 'profile' as const, jawStyle: 'sharp' as const, hasCap: false },
+                { num: 3, view: 'frontal' as const, jawStyle: 'sharp' as const, hasCap: true },
+              ].map((variant) => {
+                const isSelected = selectedVariant === variant.num;
                 return (
                   <button
-                    key={cardNum}
-                    onClick={() => setSelectedVariant(cardNum)}
-                    className={`min-h-[160px] p-4 rounded-3xl border flex flex-col items-center justify-between transition-all active:scale-98 ${
+                    key={variant.num}
+                    onClick={() => setSelectedVariant(variant.num)}
+                    className={`min-h-[220px] p-3 rounded-3xl border flex flex-col items-center justify-between transition-all active:scale-98 ${
                       isSelected
-                        ? 'border-4 border-[#5ad1ff] bg-[#5ad1ff]/15 shadow-2xl scale-105'
+                        ? 'border-4 border-[#5ad1ff] bg-[#5ad1ff]/15 shadow-2xl scale-102'
                         : 'border-white/20 bg-white/5 hover:border-white/40'
                     }`}
                   >
-                    <div className="w-20 h-24 rounded-2xl bg-black border border-white/20 flex items-center justify-center relative">
-                      <svg viewBox="0 0 100 120" className="w-14 h-18 stroke-white fill-none stroke-width-2">
-                        <ellipse cx="50" cy="55" rx="30" ry="38" />
-                        <ellipse cx="38" cy="50" rx="5" ry="3" />
-                        <ellipse cx="62" cy="50" rx="5" ry="3" />
-                        <line x1="50" y1="50" x2="50" y2="68" />
-                        <path d="M 40,78 Q 50,86 60,78" />
-                      </svg>
-                      <span className="absolute bottom-1 text-[7px] text-[#FF8964] font-mono">
-                        AI AID
+                    <div className="w-full h-36 rounded-2xl bg-[#f5f0e6] relative overflow-hidden shadow">
+                      <ForensicGraphiteSketch
+                        view={variant.view}
+                        jawStyle={variant.jawStyle}
+                        hasCap={variant.hasCap}
+                        showMetadata={false}
+                        className="w-full h-full border-none"
+                      />
+                      <span className="absolute bottom-1 inset-x-0 text-[7px] text-[#FF8964] font-mono bg-[#5A250A]/90 py-0.5 text-center">
+                        AI AID — NOT EVIDENCE
                       </span>
                     </div>
 
-                    <div className="text-sm font-bold text-white mt-2">Option #{cardNum}</div>
+                    <div className="text-sm font-bold text-white mt-2">
+                      Option #{variant.num} {variant.view === 'profile' ? '(Side Profile)' : variant.hasCap ? '(Low-profile Cap)' : '(Frontal View)'}
+                    </div>
 
                     <div
-                      className={`min-h-[48px] w-full mt-2 rounded-xl flex items-center justify-center font-bold text-xs ${
+                      className={`min-h-[40px] w-full mt-2 rounded-xl flex items-center justify-center font-bold text-xs ${
                         isSelected ? 'bg-[#5ad1ff] text-[#090a0c]' : 'bg-white/10 text-white'
                       }`}
                     >
